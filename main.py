@@ -74,7 +74,7 @@ class CliCommands():
         detected_project_types = []
         for project_class in PROJECT_TYPES:
             project = project_class(directory)
-            if project.detect():
+            if project.detected:
                 detected_project_types.append(project) 
         return detected_project_types
 
@@ -113,15 +113,15 @@ class CliCommands():
     def detect(self, directory=""):
         detected_project_types = self._detect(directory)
         for project in detected_project_types:
-            print(f"Discovered project: {project.name} {project.interpreter_version()}")
+            print(f"Discovered project: {project.name} {project.version}")
 
     @classmethod
     def create(self, directory="", dry_run=False, virtual_env_dir="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_name="", kernel_display_name=""):
         detected_project_types = self._detect(directory)
         for project in detected_project_types:
-            print(f"Discovered project: {project.name} {project.interpreter_version()}")
+            print(f"Discovered project: {project.name} {project.version}")
             print(f"Running commands to create environment in {virtual_env_dir}")
-            self._run(*project.install_commands(virtual_env_dir), dry_run=dry_run)
+            self._run(*project.install_commands(virtual_env_dir, interpreter_base_dir=interpreter_base_dir), dry_run=dry_run)
             print(f"Running commands to create kernel:")
             self._run(*project.install_kernel_commands(virtual_env_dir, user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix), dry_run=dry_run)
 

@@ -15,6 +15,8 @@ class Project:
     def __init__(self, path, **kwargs):
         self.path = Path(path)
         self.env_name = f"{self.path.name}-{uuid.uuid4().hex}"
+        self.detected = self.detect()
+        self.version = self.interpreter_version()
 
     def kernel_display_name(self):
         return f"{self.kernel_base_display_name} {self.path.name}"
@@ -31,13 +33,17 @@ class Project:
     def jupyter_kernel(self):
         return ""
 
-    def install_commands(self, env_create_path, install_interpreter_path=""):
+    def install_commands(self, env_create_path, interpreter_base_dir=""):
+        if not self.detected:
+            raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {str(self.path.resolve())}")
         if not env_create_path:
             raise RuntimeError("Missing required argument: env_create_path")
         self.check_dependencies()
         return ([], {})
 
     def install_kernel_commands(self, env_path, user=False, name="", display_name="", prefix="", **kwargs):
+        if not self.detected:
+            raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {str(self.path.resolve())}")
         self.check_dependencies()
         return ([], {})
 
@@ -115,3 +121,8 @@ class Project:
     def binder_path(self, path):
         """Locate a file"""
         return self.binder_dir / path
+
+    def detect(self):
+        """Check if project contains the kind of environment we're looking for."""
+        return False
+

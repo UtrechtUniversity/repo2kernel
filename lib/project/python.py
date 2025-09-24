@@ -6,20 +6,21 @@ class PythonProject(Project):
     name = "Python"
     dependencies = ['uv']
     kernel_base_display_name = "Python Kernel"
+    default_python_version="3.13"
 
-    def __init__(self, path, default_python_version="3.13"):
-        super().__init__(path)
-        self.default_python_version = default_python_version
+    def __init__(self, path):
+        self.default_python_version = self.default_python_version
         self.use_requirements_txt = False
+        super().__init__(path)
 
-    def install_commands(self, env_create_path, python_dir=""):
+    def install_commands(self, env_create_path, interpreter_base_dir=""):
         super()
         env = {
             "VIRTUAL_ENV": env_create_path,
         }
-
-        if python_dir:
-            env["UV_PYTHON_INSTALL_DIR"] = python_dir
+        print(self.use_requirements_txt)
+        if interpreter_base_dir:
+            env["UV_PYTHON_INSTALL_DIR"] = interpreter_base_dir
 
         cmds =  [
                 ["uv", "python", "install", self.interpreter_version()],
@@ -27,9 +28,9 @@ class PythonProject(Project):
         ]
 
         if self.use_requirements_txt:
-            cmds.append(f"uv pip compile {str(self.binder_path("requirements.txt").resolve())} | uv pip install -r -")
+            cmds.append(f"uv pip compile {self.binder_path("requirements.txt")} | uv pip install -r -")
         else:
-            cmds.append(["uv", "pip", "install", str(self.binder_dir.resolve())])
+            cmds.append(["uv", "pip", "install", str(self.binder_dir)])
         
         cmds.append(["uv", "pip", "install", self.jupyter_kernel()])
 
@@ -84,13 +85,14 @@ class PythonProject(Project):
         requirements_txt = self.binder_path("requirements.txt")
         project_config_files = ["setup.py", "pyproject.toml"]
 
-        name = self.runtime[0]
-        if name:
-            return name == "python"
-        
         for f in project_config_files:
             if self.binder_path(f).exists():
                 return True
 
-        self.use_requirements_txt = True
-        return requirements_txt.exists()
+        self.use_requirements_txt = requirements_txt.exists()
+
+        name = self.runtime[0]
+        if name:
+            return name == "python"
+        
+        return self.use_requirements_txt
