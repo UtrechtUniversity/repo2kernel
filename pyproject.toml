@@ -1,0 +1,9 @@
+[project]
+name = "repo2kernel"
+version = "0.1.0"
+description = "Turn repositories in various languages into environments suitable for a Jupyter kernel. Inspired by repo2docker."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "jupyter-repo2docker>=2025.8.0"
+]
