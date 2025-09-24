@@ -111,9 +111,15 @@ class CliCommands():
 
     @classmethod
     def detect(self, directory=""):
+        print(f"Detecting dependencies in project {directory}:")
         detected_project_types = self._detect(directory)
+        if len(detected_project_types) == 0:
+            print("Could not determine project type!")
         for project in detected_project_types:
-            print(f"Discovered project: {project.name} {project.version}")
+            print(f"Found {project.name} project:")
+            print(f"Interpreter: {project.name}")
+            print(f"Version: {project.version}")
+            print(f"Using dependency files in this directory: {project.binder_dir}")
 
     @classmethod
     def create(self, directory="", dry_run=False, virtual_env_dir="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_name="", kernel_display_name=""):
