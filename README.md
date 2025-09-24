@@ -6,8 +6,8 @@ The purpose of this is project is to provide a simple CLI tool that provides a u
 
 1. Fetch code projects from a variety of repositories (including scientific data repositories).
 2. Analyze the fetched project and determine:
-  * What dependency ecosystem (`pypi`, `conda`, `julia`...) it uses.
-  * What version of the detected language interpreter is used.
+    * What dependency ecosystem (`pypi`, `conda`, `julia`...) it uses.
+    * What version of the detected language interpreter is used.
 3. Create a [Juypyter kernel](https://docs.jupyter.org/en/stable/projects/kernels.html) for the project
 
 # Usage
