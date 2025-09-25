@@ -8,22 +8,23 @@ class PythonProject(Project):
     kernel_base_display_name = "Python Kernel"
     default_python_version="3.13"
 
-    def __init__(self, path):
+    def __init__(self, path, log, **kwargs):
         self.default_python_version = self.default_python_version
         self.use_requirements_txt = False
-        super().__init__(path)
+        super().__init__(path, log, **kwargs)
 
-    def install_commands(self, env_create_path, interpreter_base_dir=""):
-        super()
+    def install_commands(self, env_create_path, **kwargs):
+        super().install_commands(env_create_path, **kwargs)
         env = {
             "VIRTUAL_ENV": env_create_path,
         }
-        print(self.use_requirements_txt)
-        if interpreter_base_dir:
+
+        if interpreter_base_dir := kwargs.get('interpreter_base_dir', False):
             env["UV_PYTHON_INSTALL_DIR"] = interpreter_base_dir
+        dry_run = kwargs.get('dry_run', False)
 
         cmds =  [
-                ["uv", "python", "install", self.interpreter_version()],
+                ["uv", "python", "install", self.interpreter_version],
                 ["uv", "venv", env_create_path],
         ]
 
@@ -34,21 +35,28 @@ class PythonProject(Project):
         
         cmds.append(["uv", "pip", "install", self.jupyter_kernel()])
 
-        return (cmds, env)
+        self.run(cmds, env, dry_run)
+        return True # if no exception were thrown by run
 
-    def install_kernel_commands(self, env_path, user=False, name="", display_name="", prefix="", **kwargs):
-        super()
+
+    def install_kernel_commands(self, env_path, **kwargs):
+        super().install_kernel_commands(env_path, **kwargs)
+
+        dry_run = kwargs.get('dry_run', False)
+
+        extra_kernel_opts = kwargs.get('extra_kernel_opts', {})
         options = {
-            'name': name or self.env_name,
-            'display_name': display_name or self.kernel_display_name(),
-            **kwargs
+            'name': kwargs.get('name') or self.env_name,
+            'display_name': kwargs.get('display_name') or self.kernel_display_name(),
+            **extra_kernel_opts
         }
-        if user:
-            options['user'] = ''
-        if prefix:
-            options['prefix'] = prefix
 
-        return (
+        if user := kwargs.get('user', False):
+            options['user'] = Trues
+        if prefix := kwargs.get('prefix', False):
+            options['prefix'] = prefix
+    
+        cmds, env = (
             [
                 ["uv", "run", "--active", "python", "-m", self.jupyter_kernel(), "install", *self.__class__.dict2cli(options)]
             ],
@@ -57,6 +65,10 @@ class PythonProject(Project):
             }
         )
 
+        self.run(cmds, env, dry_run)
+        return True # if no exception were thrown by run
+
+    @property
     def interpreter_version(self):
         runtime_version = self.runtime[1]
         if runtime_version:

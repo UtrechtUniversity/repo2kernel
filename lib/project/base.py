@@ -1,6 +1,7 @@
 from pathlib import Path
 from shutil import which
 import uuid
+import subprocess, os
 
 class Project:
 
@@ -10,13 +11,13 @@ class Project:
 
     @classmethod
     def dict2cli(self, opts):
-        return [f"--{k.replace('_', '-')}{f'={v}' if v else ''}" for k,v in opts.items()]
+        return [f"--{k.replace('_', '-')}{f'={v}'}" for k,v in opts.items() if v]
 
-    def __init__(self, path, **kwargs):
+    def __init__(self, path, log, **kwargs):
         self.path = Path(path)
         self.env_name = f"{self.path.name}-{uuid.uuid4().hex}"
         self.detected = self.detect()
-        self.version = self.interpreter_version()
+        self.log = log
 
     def kernel_display_name(self):
         return f"{self.kernel_base_display_name} {self.path.name}"
@@ -27,25 +28,27 @@ class Project:
                 raise RuntimeError(f"Dependency {d} for {self.__class__.__name__} not found.")
         return True
 
+    @property
     def interpreter_version(self):
         return ""
 
     def jupyter_kernel(self):
         return ""
 
-    def install_commands(self, env_create_path, interpreter_base_dir=""):
-        if not self.detected:
-            raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {str(self.path.resolve())}")
-        if not env_create_path:
-            raise RuntimeError("Missing required argument: env_create_path")
-        self.check_dependencies()
-        return ([], {})
 
-    def install_kernel_commands(self, env_path, user=False, name="", display_name="", prefix="", **kwargs):
+    def install_commands(self, env_create_path, interpreter_base_dir="", dry_run=False):
         if not self.detected:
-            raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {str(self.path.resolve())}")
+            raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {self.path.resolve()}")
         self.check_dependencies()
-        return ([], {})
+        self.log.info(f"CREATE VENV: Attempting to install dependencies for {self.path.resolve()} into {env_create_path}.")
+        return True
+
+    def install_kernel_commands(self, env_path, user=False, name="", display_name="", prefix="", dry_run=True, extra_kernel_opts={}):
+        if not self.detected:
+            raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {self.path.resolve()}")
+        self.check_dependencies()
+        self.log.info(f"CREATE KERNEL: Attempting to create kernel for {self.path.resolve()}.")
+        return True
 
     def detect(self):
         return True
@@ -126,3 +129,19 @@ class Project:
         """Check if project contains the kind of environment we're looking for."""
         return False
 
+    def run(self, commands, env, dry_run=False):
+        self.log.info("Will run the following commands:")
+        for cmd in commands:
+            self.log.info(cmd)
+        self.log.info("...with the following environment variables:")
+        for k,v in env.items():
+            self.log.info(f"{k}={v}")
+        if not dry_run:
+            for cmd in commands:
+                self.log.info(f"Now running `{cmd}`...")
+                p = subprocess.Popen(cmd, env=(os.environ.copy() | env), shell=isinstance(cmd, str))
+                exit_code = p.wait()
+                if exit_code > 0:
+                    raise RuntimeError(f"Error! repo2kernel is aborting after the following command failed:\n{cmd}")
+                else:
+                    self.log.info("...success")

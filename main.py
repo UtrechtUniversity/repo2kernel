@@ -1,6 +1,5 @@
 import repo2docker.contentproviders
 from lib import PythonProject
-import subprocess, os
 
 import argparse
 
@@ -50,32 +49,21 @@ class CliCommands():
     import logging
 
     log = logging.getLogger("repo2kernel")
-
-    @classmethod
-    def _run(self, commands, env, dry_run=False):
-        print("Will run the following commands: ")
-        print(commands)
-        for cmd in commands:
-            print(cmd)
-        print("...with the following environment variables:")
-        print(env)
-        if not dry_run:
-            for cmd in commands:
-                print(f"Running: {cmd}")
-                p = subprocess.Popen(cmd, env=(os.environ.copy() | env), shell=isinstance(cmd, str))
-                exit_code = p.wait()
-                if exit_code > 0:
-                    raise RuntimeError(f"Error! repo2kernel is aborting after the following command failed:\n{cmd}")
-                else:
-                    print("...success")
+    logging.basicConfig(level=logging.INFO)
 
     @classmethod
     def _detect(self, directory):
         detected_project_types = []
+
+        self.log.info(f"Detecting dependencies in project {directory}:")
+
         for project_class in PROJECT_TYPES:
-            project = project_class(directory)
+            project = project_class(directory, self.log)
             if project.detected:
-                detected_project_types.append(project) 
+                self.log.info(f"Discovered {project.name} project in {project.path}")
+                detected_project_types.append(project)
+        if len(detected_project_types) == 0:
+            self.log.warning("Could not determine project type!")
         return detected_project_types
 
     @classmethod
@@ -111,25 +99,18 @@ class CliCommands():
 
     @classmethod
     def detect(self, directory=""):
-        print(f"Detecting dependencies in project {directory}:")
         detected_project_types = self._detect(directory)
-        if len(detected_project_types) == 0:
-            print("Could not determine project type!")
         for project in detected_project_types:
-            print(f"Found {project.name} project:")
+            print(f"Found dependency files in this directory: {project.binder_dir}")
             print(f"Interpreter: {project.name}")
-            print(f"Version: {project.version}")
-            print(f"Using dependency files in this directory: {project.binder_dir}")
+            print(f"Version: {project.interpreter_version}")
 
     @classmethod
     def create(self, directory="", dry_run=False, virtual_env_dir="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_name="", kernel_display_name=""):
         detected_project_types = self._detect(directory)
         for project in detected_project_types:
-            print(f"Discovered project: {project.name} {project.version}")
-            print(f"Running commands to create environment in {virtual_env_dir}")
-            self._run(*project.install_commands(virtual_env_dir, interpreter_base_dir=interpreter_base_dir), dry_run=dry_run)
-            print(f"Running commands to create kernel:")
-            self._run(*project.install_kernel_commands(virtual_env_dir, user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix), dry_run=dry_run)
+            project.install_commands(virtual_env_dir, interpreter_base_dir=interpreter_base_dir, dry_run=dry_run)
+            project.install_kernel_commands(virtual_env_dir, user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix, dry_run=dry_run)
 
 if __name__ == "__main__":
     args = get_argparser().parse_args()
