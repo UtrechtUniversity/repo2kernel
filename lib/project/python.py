@@ -29,10 +29,14 @@ class PythonProject(Project):
         ]
 
         if self.use_requirements_txt:
-            cmds.append(f"uv pip compile {self.binder_path("requirements.txt")} | uv pip install -r -")
+            cmds.append(f"uv pip install -r {self.binder_path('requirements.txt').resolve()}")
+        elif self.use_pipfile_lock:
+            cmds.append(f"uvx pipenv install --ignore-pipfile --dev")
+        elif self.use_pipfile:
+            cmds.append(f"uvx pipenv install --skip-lock --dev")
         else:
             cmds.append(["uv", "pip", "install", str(self.binder_dir)])
-        
+
         cmds.append(["uv", "pip", "install", self.jupyter_kernel()])
 
         self.run(cmds, env, dry_run)
@@ -95,6 +99,8 @@ class PythonProject(Project):
     def detect(self):
         """Check if current repo should be built with the Python buildpack."""
         requirements_txt = self.binder_path("requirements.txt")
+        pipfile = self.binder_path("Pipfile")
+        pipfile_lock = self.binder_path("Pipfile.lock")
         project_config_files = ["setup.py", "pyproject.toml"]
 
         for f in project_config_files:
@@ -102,9 +108,12 @@ class PythonProject(Project):
                 return True
 
         self.use_requirements_txt = requirements_txt.exists()
+        self.use_pipfile_lock = pipfile_lock.exists()
+        self.use_pipfile = pipfile.exists()
 
         name = self.runtime[0]
         if name:
             return name == "python"
-        
-        return self.use_requirements_txt
+
+        return self.use_requirements_txt or self.use_pipfile_lock or self.use_pipfile
+
