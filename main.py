@@ -69,8 +69,10 @@ class CliCommands():
 
     @classmethod
     # This method was adapted from https://github.com/jupyterhub/repo2docker
-    # See here for the original license (BSD-3):
+    # Repo2docker is licensed under the BSD-3 license:
     # https://github.com/jupyterhub/repo2docker/blob/main/LICENSE
+    # Copyright (c) 2017, Project Jupyter Contributors
+    # All rights reserved.
     def fetch(self, url="", target="", ref=""):
         """Fetch the contents of `url` and place it in `target`.
 

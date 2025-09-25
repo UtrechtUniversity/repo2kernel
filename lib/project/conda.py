@@ -18,6 +18,11 @@ class CondaProject(PythonProject, RProject):
         super().__init__(path, log, **kwargs)
         self._environment_yaml = None
 
+    # This method was adapted from https://github.com/jupyterhub/repo2docker
+    # Repo2docker is licensed under the BSD-3 license:
+    # https://github.com/jupyterhub/repo2docker/blob/main/LICENSE
+    # Copyright (c) 2017, Project Jupyter Contributors
+    # All rights reserved.
     @property
     def environment_yaml(self):
         if self._environment_yaml is None:
@@ -30,6 +35,11 @@ class CondaProject(PythonProject, RProject):
         else:
             return self._environment_yaml
 
+    # This method was copied from https://github.com/jupyterhub/repo2docker
+    # Repo2docker is licensed under the BSD-3 license:
+    # https://github.com/jupyterhub/repo2docker/blob/main/LICENSE
+    # Copyright (c) 2017, Project Jupyter Contributors
+    # All rights reserved.
     @property
     def uses_r(self):
         """Detect whether the project uses R.
