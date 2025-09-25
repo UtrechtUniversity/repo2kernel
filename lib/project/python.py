@@ -7,62 +7,65 @@ class PythonProject(Project):
     dependencies = ['uv']
     kernel_base_display_name = "Python Kernel"
     default_python_version="3.13"
+    kernel_package_py = "ipykernel"
 
     def __init__(self, path, log, **kwargs):
-        self.default_python_version = self.default_python_version
         self.use_requirements_txt = False
+        self.use_pipfile = False
+        self.use_pipfile_lock = False
         super().__init__(path, log, **kwargs)
 
-    def install_commands(self, env_create_path, **kwargs):
-        super().install_commands(env_create_path, **kwargs)
+    def create_venv(self, env_create_path, interpreter_base_dir="", dry_run=False):
+
+
+        self.run(cmds, {}, dry_run=dry_run)
+
+    def install_dependencies(self, base_cmd=[]):
+        cmds = []
+
+        return cmds
+
+    def create_environment(self, env_create_path, interpreter_base_dir="", dry_run=False):
+        Project.create_environment(self, env_create_path)
         env = {
             "VIRTUAL_ENV": env_create_path,
         }
 
-        if interpreter_base_dir := kwargs.get('interpreter_base_dir', False):
+        if interpreter_base_dir:
             env["UV_PYTHON_INSTALL_DIR"] = interpreter_base_dir
-        dry_run = kwargs.get('dry_run', False)
 
-        cmds =  [
-                ["uv", "python", "install", self.interpreter_version],
-                ["uv", "venv", env_create_path],
+        cmds = [
+            ["uv", "python", "install", self.interpreter_version],
+            ["uv", "venv", env_create_path, "--python", self.interpreter_version]
         ]
 
         if self.use_requirements_txt:
-            cmds.append(f"uv pip install -r {self.binder_path('requirements.txt').resolve()}")
+            cmds.append(["uv", "pip", "install", "-r", str(self.binder_path('requirements.txt').resolve())])
         elif self.use_pipfile_lock:
-            cmds.append(f"uvx pipenv install --ignore-pipfile --dev")
+            cmds.append(["uvx", "pipenv", "install", "--ignore-pipfile --dev"])
         elif self.use_pipfile:
-            cmds.append(f"uvx pipenv install --skip-lock --dev")
+            cmds.append(["uvx", "pipenv", "install", "--skip-lock", "--dev"])
         else:
             cmds.append(["uv", "pip", "install", str(self.binder_dir)])
 
-        cmds.append(["uv", "pip", "install", self.jupyter_kernel()])
+        cmds.append([*base_cmd, "pip", "install", self.kernel_package_py])
 
-        self.run(cmds, env, dry_run)
-        return True # if no exception were thrown by run
+        self.run(install_dependencies(base_cmd=base_cmd), env, dry_run=dry_run)
+        return True
 
+    def create_kernel(self,  env_path, user=False, name="", display_name="", prefix="", base_cmd=["uv", "run", "--active"], dry_run=False):
+        Project.create_kernel(self, env_path) # sanity checks
 
-    def install_kernel_commands(self, env_path, **kwargs):
-        super().install_kernel_commands(env_path, **kwargs)
-
-        dry_run = kwargs.get('dry_run', False)
-
-        extra_kernel_opts = kwargs.get('extra_kernel_opts', {})
         options = {
-            'name': kwargs.get('name') or self.env_name,
-            'display_name': kwargs.get('display_name') or self.kernel_display_name(),
-            **extra_kernel_opts
+            'name': name or self.env_name,
+            'display_name': display_name or self.kernel_display_name(),
+            'user': user,
+            'prefix': prefix
         }
 
-        if user := kwargs.get('user', False):
-            options['user'] = Trues
-        if prefix := kwargs.get('prefix', False):
-            options['prefix'] = prefix
-    
         cmds, env = (
             [
-                ["uv", "run", "--active", "python", "-m", self.jupyter_kernel(), "install", *self.__class__.dict2cli(options)]
+                [*base_cmd, "python", "-m", self.kernel_package_py, "install", *self.__class__.dict2cli(options)]
             ],
             {
                 "VIRTUAL_ENV": env_path,
@@ -70,7 +73,7 @@ class PythonProject(Project):
         )
 
         self.run(cmds, env, dry_run)
-        return True # if no exception were thrown by run
+        return True
 
     @property
     def interpreter_version(self):
@@ -93,11 +96,8 @@ class PythonProject(Project):
         # TODO: log using default version
         return self.default_python_version
 
-    def jupyter_kernel(self):
-        return "ipykernel"
-
     def detect(self):
-        """Check if current repo should be built with the Python buildpack."""
+        """Check if current repo contains a Python project."""
         requirements_txt = self.binder_path("requirements.txt")
         pipfile = self.binder_path("Pipfile")
         pipfile_lock = self.binder_path("Pipfile.lock")
@@ -114,6 +114,4 @@ class PythonProject(Project):
         name = self.runtime[0]
         if name:
             return name == "python"
-
         return self.use_requirements_txt or self.use_pipfile_lock or self.use_pipfile
-

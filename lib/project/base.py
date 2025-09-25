@@ -32,23 +32,17 @@ class Project:
     def interpreter_version(self):
         return ""
 
-    def jupyter_kernel(self):
-        return ""
-
-
-    def install_commands(self, env_create_path, interpreter_base_dir="", dry_run=False):
+    def create_environment(self, env_create_path, interpreter_base_dir="", dry_run=False):
         if not self.detected:
             raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {self.path.resolve()}")
         self.check_dependencies()
-        self.log.info(f"CREATE VENV: Attempting to install dependencies for {self.path.resolve()} into {env_create_path}.")
-        return True
+        self.log.info(f"CREATE {self.name} VENV: Attempting to install dependencies for {self.path.resolve()} into {env_create_path}.")
 
-    def install_kernel_commands(self, env_path, user=False, name="", display_name="", prefix="", dry_run=True, extra_kernel_opts={}):
+    def create_kernel(self, env_path, user=False, name="", display_name="", prefix="", dry_run=True, extra_kernel_opts={}):
         if not self.detected:
             raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {self.path.resolve()}")
         self.check_dependencies()
         self.log.info(f"CREATE KERNEL: Attempting to create kernel for {self.path.resolve()}.")
-        return True
 
     def detect(self):
         return True
@@ -133,15 +127,16 @@ class Project:
         self.log.info("Will run the following commands:")
         for cmd in commands:
             self.log.info(cmd)
-        self.log.info("...with the following environment variables:")
-        for k,v in env.items():
-            self.log.info(f"{k}={v}")
+        if len(env.keys()) > 0:
+            self.log.info("...with the following environment variables:")
+            for k,v in env.items():
+                self.log.info(f"{k}={v}")
         if not dry_run:
             for cmd in commands:
-                self.log.info(f"Now running `{cmd}`...")
                 p = subprocess.Popen(cmd, env=(os.environ.copy() | env), shell=isinstance(cmd, str))
                 exit_code = p.wait()
                 if exit_code > 0:
                     raise RuntimeError(f"Error! repo2kernel is aborting after the following command failed:\n{cmd}")
                 else:
                     self.log.info("...success")
+        return True

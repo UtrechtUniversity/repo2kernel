@@ -5,5 +5,6 @@ description = "Turn repositories in various languages into environments suitable
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "jupyter-repo2docker>=2025.8.0"
+    "jupyter-repo2docker>=2025.8.0",
+    "pyyaml>=6.0.2",
 ]

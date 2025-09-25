@@ -1,10 +1,11 @@
 import repo2docker.contentproviders
-from lib import PythonProject
+from lib import PythonProject, CondaProject
 
 import argparse
 
 PROJECT_TYPES = {
-    PythonProject
+    PythonProject,
+    CondaProject
 }
 
 CONTENT_PROVIDERS = {
@@ -109,8 +110,8 @@ class CliCommands():
     def create(self, directory="", dry_run=False, virtual_env_dir="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_name="", kernel_display_name=""):
         detected_project_types = self._detect(directory)
         for project in detected_project_types:
-            project.install_commands(virtual_env_dir, interpreter_base_dir=interpreter_base_dir, dry_run=dry_run)
-            project.install_kernel_commands(virtual_env_dir, user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix, dry_run=dry_run)
+            project.create_environment(virtual_env_dir, interpreter_base_dir=interpreter_base_dir, dry_run=dry_run)
+            project.create_kernel(virtual_env_dir, user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix, dry_run=dry_run)
 
 if __name__ == "__main__":
     args = get_argparser().parse_args()
