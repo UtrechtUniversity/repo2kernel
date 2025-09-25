@@ -6,7 +6,7 @@ class PythonProject(Project):
     name = "Python"
     dependencies = ['uv']
     kernel_base_display_name = "Python Kernel"
-    default_python_version="3.13"
+    default_python_version="3"
     kernel_package_py = "ipykernel"
 
     def __init__(self, path, log, **kwargs):
@@ -15,18 +15,8 @@ class PythonProject(Project):
         self.use_pipfile_lock = False
         super().__init__(path, log, **kwargs)
 
-    def create_venv(self, env_create_path, interpreter_base_dir="", dry_run=False):
-
-
-        self.run(cmds, {}, dry_run=dry_run)
-
-    def install_dependencies(self, base_cmd=[]):
-        cmds = []
-
-        return cmds
-
     def create_environment(self, env_create_path, interpreter_base_dir="", dry_run=False):
-        Project.create_environment(self, env_create_path)
+        Project.create_environment(self, env_create_path) # sanity checks
         env = {
             "VIRTUAL_ENV": env_create_path,
         }
@@ -48,9 +38,9 @@ class PythonProject(Project):
         else:
             cmds.append(["uv", "pip", "install", str(self.binder_dir)])
 
-        cmds.append([*base_cmd, "pip", "install", self.kernel_package_py])
+        cmds.append(["uv", "pip", "install", self.kernel_package_py])
 
-        self.run(install_dependencies(base_cmd=base_cmd), env, dry_run=dry_run)
+        self.run(cmds, env, dry_run=dry_run)
         return True
 
     def create_kernel(self,  env_path, user=False, name="", display_name="", prefix="", base_cmd=["uv", "run", "--active"], dry_run=False):
@@ -63,16 +53,11 @@ class PythonProject(Project):
             'prefix': prefix
         }
 
-        cmds, env = (
-            [
-                [*base_cmd, "python", "-m", self.kernel_package_py, "install", *self.__class__.dict2cli(options)]
-            ],
-            {
-                "VIRTUAL_ENV": env_path,
-            }
-        )
+        cmds = [
+            [*base_cmd, "python", "-m", self.kernel_package_py, "install", *self.__class__.dict2cli(options)]
+        ]
 
-        self.run(cmds, env, dry_run)
+        self.run(cmds, { "VIRTUAL_ENV": env_path }, dry_run)
         return True
 
     @property
