@@ -24,15 +24,17 @@ class PythonProject(Project):
 
     def cmd_init_environment(self):
         cmds =  [
-            ["uv", "venv", self.env_path, "--python", self.interpreter_version]
+            ["uv", "venv", str(self.env_path), "--python", self.interpreter_version]
         ]
         return (cmds, {})
 
-    def create_environment(self, interpreter_base_dir="", dry_run=False):
+    def create_environment(self, interpreter_base_dir="", install_python=True, dry_run=False):
         Project.create_environment(self, self.env_path) # sanity check
 
-        self.run(*self.cmd_install_python(interpreter_base_dir), dry_run=dry_run)
-        self.run(*self.cmd_init_environment(), dry_run=dry_run)
+        if install_python:
+            self.run(*self.cmd_install_python(interpreter_base_dir), dry_run=dry_run)
+        if not self.env_path.exists():
+            self.run(*self.cmd_init_environment(), dry_run=dry_run)
 
         cmds = []
         if f := self.dependency_files.get("requirements.txt"):
@@ -46,7 +48,7 @@ class PythonProject(Project):
 
         cmds.append(["uv", "pip", "install", self.kernel_package_py])
 
-        self.run(cmds, {"VIRTUAL_ENV": self.env_path }, dry_run=dry_run)
+        self.run(cmds, {"VIRTUAL_ENV": str(self.env_path) }, dry_run=dry_run)
         return True
 
     def create_kernel(self, user=False, name="", display_name="", prefix="", base_cmd=["uv", "run", "--active"], dry_run=False):
@@ -63,7 +65,7 @@ class PythonProject(Project):
             [*base_cmd, "python", "-m", self.kernel_package_py, "install", *self.__class__.dict2cli(options)]
         ]
 
-        self.run(cmds, { "VIRTUAL_ENV": self.env_path }, dry_run)
+        self.run(cmds, { "VIRTUAL_ENV": str(self.env_path) }, dry_run)
         return True
 
     @property
@@ -96,13 +98,13 @@ class PythonProject(Project):
         project_config_files = ["setup.py", "pyproject.toml"]
         for f in project_config_files:
             if (dep_file := self.binder_path(f)).exists():
-                self.dependency_files[dep_file] = str(dep_file.resolve())
+                self.dependency_files[dep_file] = str(dep_file)
                 return True
 
         has_pip_or_req_file = False
         for f in [requirements_txt, pipfile_lock, pipfile]:
             if f.exists():
-                self.dependency_files[f.name] = str(f.resolve())
+                self.dependency_files[f.name] = str(f)
                 has_pip_or_req_file = True
         if has_pip_or_req_file:
             return True

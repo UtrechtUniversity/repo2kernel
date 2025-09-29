@@ -16,7 +16,7 @@ class Project:
     def __init__(self, project_path, env_path, log, **kwargs):
         self.project_path = Path(project_path)
         self.env_name = f"{self.project_path.name}-{uuid.uuid4().hex}"
-        self.env_path = env_path
+        self.env_path = Path(env_path)
         self.log = log
         self.dependency_files = {}
 

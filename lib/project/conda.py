@@ -20,7 +20,6 @@ class CondaProject(PythonProject, RProject):
         self._environment_yaml = None
         self._env_file_dependencies = None
         self.detected = self.detect()
-        print(self.log)
 
     # This method was adapted from https://github.com/jupyterhub/repo2docker
     # Repo2docker is licensed under the BSD-3 license:
@@ -81,7 +80,7 @@ class CondaProject(PythonProject, RProject):
 
     def cmd_init_environment(self):
         cmds = [
-            ["conda", "env", "create", "-f", str(self.binder_path("environment.yml").resolve()), "-p", self.env_path]
+            ["conda", "env", "create", "-f", str(self.binder_path("environment.yml")), "-p", str(self.env_path)]
         ]
         return (cmds, {})
 
@@ -95,11 +94,11 @@ class CondaProject(PythonProject, RProject):
         cmds = []
 
         if self.uses_r:
-            cmds.append(["conda", "install", "-p", self.env_path, self.kernel_package_r, "-y"])
+            cmds.append(["conda", "install", "-p", str(self.env_path), self.kernel_package_r, "-y"])
         if self.uses_python:
-            cmds.append(["conda", "install", "-p", self.env_path, self.kernel_package_py, "-y"])
+            cmds.append(["conda", "install", "-p", str(self.env_path), self.kernel_package_py, "-y"])
             if self.dependency_files.get("requirements.txt"):
-                cmds.append(["conda", "run", "-p", self.env_path, "pip", "install", "-r", str(self.binder_path("requirements.txt").resolve())])
+                cmds.append(["conda", "run", "-p", str(self.env_path), "pip", "install", "-r", str(self.binder_path("requirements.txt"))])
 
         # optional: conda clean --all -f -y
 
@@ -112,7 +111,7 @@ class CondaProject(PythonProject, RProject):
             raise RuntimeError(f"Aborting: could not find either R or Python in conda environment in {env_path}. Do not know how to create Jupyter kernel.")
 
         _name = name or self.env_name
-        _base_cmd = ["conda", "run", "-p", self.env_path]
+        _base_cmd = ["conda", "run", "-p", str(self.env_path)]
         
         if self.uses_python:
             PythonProject.create_kernel(self, user=user, name=f"python-{_name}", display_name=display_name, prefix=prefix, dry_run=dry_run, base_cmd=_base_cmd)
@@ -125,6 +124,6 @@ class CondaProject(PythonProject, RProject):
         """Check if current repo contains a Conda project."""
         env_yml = self.binder_path("environment.yml")
         if env_yml.exists():
-            self.dependency_files["environment.yml"] = str(env_yml.resolve())
+            self.dependency_files["environment.yml"] = str(env_yml)
             return True
         return False
