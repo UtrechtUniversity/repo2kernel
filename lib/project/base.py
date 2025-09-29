@@ -13,14 +13,15 @@ class Project:
     def dict2cli(self, opts):
         return [f"--{k.replace('_', '-')}{f'={v}'}" for k,v in opts.items() if v]
 
-    def __init__(self, path, log, **kwargs):
-        self.path = Path(path)
-        self.env_name = f"{self.path.name}-{uuid.uuid4().hex}"
+    def __init__(self, project_path, env_path, log, **kwargs):
+        self.project_path = Path(project_path)
+        self.env_name = f"{self.project_path.name}-{uuid.uuid4().hex}"
+        self.env_path = env_path
         self.detected = self.detect()
         self.log = log
 
     def kernel_display_name(self):
-        return f"{self.kernel_base_display_name} {self.path.name}"
+        return f"{self.kernel_base_display_name} {self.project_path.name}"
 
     def check_dependencies(self):
         for d in self.dependencies:
@@ -32,17 +33,17 @@ class Project:
     def interpreter_version(self):
         return ""
 
-    def create_environment(self, env_create_path, interpreter_base_dir="", dry_run=False):
+    def create_environment(self, interpreter_base_dir="", dry_run=False):
         if not self.detected:
-            raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {self.path.resolve()}")
+            raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {self.project_path.resolve()}")
         self.check_dependencies()
-        self.log.info(f"CREATE {self.name} VENV: Attempting to install dependencies for {self.path.resolve()} into {env_create_path}.")
+        self.log.info(f"CREATE {self.name} VENV: Attempting to install dependencies for {self.project_path.resolve()} into {self.env_path}.")
 
-    def create_kernel(self, env_path, user=False, name="", display_name="", prefix="", dry_run=True, extra_kernel_opts={}):
+    def create_kernel(self, user=False, name="", display_name="", prefix="", dry_run=True, extra_kernel_opts={}):
         if not self.detected:
-            raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {self.path.resolve()}")
+            raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {self.project_path.resolve()}")
         self.check_dependencies()
-        self.log.info(f"CREATE KERNEL: Attempting to create kernel for {self.path.resolve()}.")
+        self.log.info(f"CREATE KERNEL: Attempting to create kernel for {self.project_path.resolve()}.")
 
     def detect(self):
         return True
@@ -96,8 +97,8 @@ class Project:
 
     @property
     def binder_dir(self):
-        binder_path = self.path / "binder"
-        dotbinder_path = self.path / ".binder"
+        binder_path = self.project_path / "binder"
+        dotbinder_path = self.project_path / ".binder"
 
         has_binder = binder_path.is_dir()
         has_dotbinder = dotbinder_path.is_dir()
@@ -113,7 +114,7 @@ class Project:
         elif has_binder:
             return binder_path
         else:
-            return self.path
+            return self.project_path
 
     def binder_path(self, path):
         """Locate a file"""

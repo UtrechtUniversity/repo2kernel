@@ -14,9 +14,12 @@ class CondaProject(PythonProject, RProject):
     dependencies = ['conda']
     kernel_package_r = "r-irkernel"
 
-    def __init__(self, path, log, **kwargs):
-        super().__init__(path, log, **kwargs)
+    def __init__(self, project_path, env_path, log, **kwargs):
+        PythonProject.__init__(self, project_path, env_path, log, **kwargs)
+        RProject.__init__(self, project_path, env_path, log, **kwargs)
+        self.env_file = None
         self._environment_yaml = None
+        self.detect()
 
     # This method was adapted from https://github.com/jupyterhub/repo2docker
     # Repo2docker is licensed under the BSD-3 license:
@@ -74,24 +77,24 @@ class CondaProject(PythonProject, RProject):
                     break
         return self._uses_python
 
-    def create_environment(self, env_create_path, **kwargs):
-        Project.create_environment(self, env_create_path, **kwargs)
+    def create_environment(self, **kwargs):
+        Project.create_environment(self, **kwargs)
 
         dry_run = kwargs.get('dry_run', False)
 
         cmds =  [
-            ["conda", "env", "create", "-f", str(self.binder_path("environment.yml").resolve()), "-p", env_create_path]
+            ["conda", "env", "create", "-f", str(self.binder_path("environment.yml").resolve()), "-p", self.env_path]
         ]
 
         self.run(cmds, {}, dry_run)
         cmds = []
 
         if self.uses_r:
-            cmds.append(["conda", "install", "-p", env_create_path, self.kernel_package_r, "-y"])
+            cmds.append(["conda", "install", "-p", self.env_path, self.kernel_package_r, "-y"])
         if self.uses_python:
-            cmds.append(["conda", "install", "-p", env_create_path, self.kernel_package_py, "-y"])
+            cmds.append(["conda", "install", "-p", self.env_path, self.kernel_package_py, "-y"])
             if self.use_requirements_txt:
-                cmds.append(["conda", "run", "-p", env_create_path, "pip", "install", "-r", str(self.binder_path("requirements.txt").resolve())])
+                cmds.append(["conda", "run", "-p", self.env_path, "pip", "install", "-r", str(self.binder_path("requirements.txt").resolve())])
 
         # optional: conda clean --all -f -y
 
@@ -99,22 +102,21 @@ class CondaProject(PythonProject, RProject):
         return True
 
 
-    def create_kernel(self, env_path, user=False, name="", display_name="", prefix="", dry_run=False):
+    def create_kernel(self, user=False, name="", display_name="", prefix="", dry_run=False):
         if not (dry_run or self.uses_python or self.uses_r):
             raise RuntimeError(f"Aborting: could not find either R or Python in conda environment in {env_path}. Do not know how to create Jupyter kernel.")
 
         _name = name or self.env_name
-        _base_cmd = ["conda", "run", "-p", env_path]
+        _base_cmd = ["conda", "run", "-p", self.env_path]
         
         if self.uses_python:
-            PythonProject.create_kernel(self, env_path, user=user, name=f"python-{_name}", display_name=display_name, prefix=prefix, dry_run=dry_run, base_cmd=_base_cmd)
+            PythonProject.create_kernel(self, user=user, name=f"python-{_name}", display_name=display_name, prefix=prefix, dry_run=dry_run, base_cmd=_base_cmd)
         if self.uses_r:
-            RProject.create_kernel(self, env_path, user=user, name=f"r-{_name}", display_name=display_name, prefix=prefix, dry_run=dry_run, base_cmd=_base_cmd)
+            RProject.create_kernel(self, user=user, name=f"r-{_name}", display_name=display_name, prefix=prefix, dry_run=dry_run, base_cmd=_base_cmd)
 
         return True
 
     def detect(self):
         """Check if current repo contains a Conda project."""
-        PythonProject.detect(self) # PythonProject.detect() to detect requirements.txt
         self.env_file = self.binder_path("environment.yml")
         return self.env_file.exists()

@@ -9,16 +9,17 @@ class PythonProject(Project):
     default_python_version="3"
     kernel_package_py = "ipykernel"
 
-    def __init__(self, path, log, **kwargs):
+    def __init__(self, project_path, env_path, log, **kwargs):
         self.use_requirements_txt = False
         self.use_pipfile = False
         self.use_pipfile_lock = False
-        super().__init__(path, log, **kwargs)
+        super().__init__(project_path, env_path, log, **kwargs)
+        self.detect()
 
-    def create_environment(self, env_create_path, interpreter_base_dir="", dry_run=False):
-        Project.create_environment(self, env_create_path) # sanity checks
+    def create_environment(self, interpreter_base_dir="", dry_run=False):
+        Project.create_environment(self, self.env_path) # sanity checks
         env = {
-            "VIRTUAL_ENV": env_create_path,
+            "VIRTUAL_ENV": self.env_path,
         }
 
         if interpreter_base_dir:
@@ -26,7 +27,7 @@ class PythonProject(Project):
 
         cmds = [
             ["uv", "python", "install", self.interpreter_version],
-            ["uv", "venv", env_create_path, "--python", self.interpreter_version]
+            ["uv", "venv", self.env_path, "--python", self.interpreter_version]
         ]
 
         if self.use_requirements_txt:
@@ -43,8 +44,8 @@ class PythonProject(Project):
         self.run(cmds, env, dry_run=dry_run)
         return True
 
-    def create_kernel(self,  env_path, user=False, name="", display_name="", prefix="", base_cmd=["uv", "run", "--active"], dry_run=False):
-        Project.create_kernel(self, env_path) # sanity checks
+    def create_kernel(self, user=False, name="", display_name="", prefix="", base_cmd=["uv", "run", "--active"], dry_run=False):
+        Project.create_kernel(self, self.env_path) # sanity checks
 
         options = {
             'name': name or self.env_name,
@@ -57,7 +58,7 @@ class PythonProject(Project):
             [*base_cmd, "python", "-m", self.kernel_package_py, "install", *self.__class__.dict2cli(options)]
         ]
 
-        self.run(cmds, { "VIRTUAL_ENV": env_path }, dry_run)
+        self.run(cmds, { "VIRTUAL_ENV": self.env_path }, dry_run)
         return True
 
     @property
@@ -66,11 +67,11 @@ class PythonProject(Project):
         if runtime_version:
             return runtime_version
 
-        python_version = self.path / ".python-version"
+        python_version = self.project_path / ".python-version"
         if python_version.exists():
             return python_version.read_text()
 
-        pyproject = self.path / "pyproject.toml"
+        pyproject = self.project_path / "pyproject.toml"
         if pyproject.exists():
             with open(pyproject.resolve(), "rb") as f:
                 data = tomllib.load(f)        

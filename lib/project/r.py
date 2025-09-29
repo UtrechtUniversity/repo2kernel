@@ -4,6 +4,10 @@ class RProject(Project):
     name = "R"
     kernel_base_display_name = "R Kernel"
 
+    def __init__(self, project_path, env_path, log, **kwargs):
+        super().__init__(project_path, env_path, log, **kwargs)
+        self.detect()
+
     def r_create_kernel_cmd(self, name="", display_name="", prefix="", user=False):
         args = []
 

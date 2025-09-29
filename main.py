@@ -53,15 +53,15 @@ class CliCommands():
     logging.basicConfig(level=logging.INFO)
 
     @classmethod
-    def _detect(self, directory):
+    def _detect(self, directory, env_create_path=None):
         detected_project_types = []
 
         self.log.info(f"Detecting dependencies in project {directory}:")
 
         for project_class in PROJECT_TYPES:
-            project = project_class(directory, self.log)
+            project = project_class(directory, env_create_path, self.log)
             if project.detected:
-                self.log.info(f"Discovered {project.name} project in {project.path}")
+                self.log.info(f"Discovered {project.name} project in {directory}")
                 detected_project_types.append(project)
         if len(detected_project_types) == 0:
             self.log.warning("Could not determine project type!")
@@ -110,10 +110,10 @@ class CliCommands():
 
     @classmethod
     def create(self, directory="", dry_run=False, virtual_env_dir="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_name="", kernel_display_name=""):
-        detected_project_types = self._detect(directory)
+        detected_project_types = self._detect(directory, env_create_path=virtual_env_dir)
         for project in detected_project_types:
-            project.create_environment(virtual_env_dir, interpreter_base_dir=interpreter_base_dir, dry_run=dry_run)
-            project.create_kernel(virtual_env_dir, user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix, dry_run=dry_run)
+            project.create_environment(interpreter_base_dir=interpreter_base_dir, dry_run=dry_run)
+            project.create_kernel(user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix, dry_run=dry_run)
 
 if __name__ == "__main__":
     args = get_argparser().parse_args()
