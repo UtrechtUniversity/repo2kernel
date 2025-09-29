@@ -32,3 +32,46 @@ class RProject(Project):
         ]
         self.run(cmds, {}, dry_run=dry_run)
         return True
+
+    # This method was copied from https://github.com/jupyterhub/repo2docker
+    # Repo2docker is licensed under the BSD-3 license:
+    # https://github.com/jupyterhub/repo2docker/blob/main/LICENSE
+    # Copyright (c) 2017, Project Jupyter Contributors
+    # All rights reserved.
+    @property
+    def checkpoint_date(self):
+        """
+        Return the date of CRAN checkpoint to use for this repo
+
+        Returns '' if no date is specified
+        """
+        if not hasattr(self, "_checkpoint_date"):
+            name, version, date = self.runtime
+            if name == "r" and date:
+                self._checkpoint_date = date
+            else:
+                self._checkpoint_date = False
+        return self._checkpoint_date
+
+    # This method was modified from https://github.com/jupyterhub/repo2docker
+    # Repo2docker is licensed under the BSD-3 license:
+    # https://github.com/jupyterhub/repo2docker/blob/main/LICENSE
+    # Copyright (c) 2017, Project Jupyter Contributors
+    # All rights reserved.
+    def detect(self):
+        """
+        Check if current repo contains an R Project.
+
+        Returns True if R was specified in runtime.txt, or
+        a "DESCRIPTION" file is found in the repo root.
+        """
+        # If no date is found, then self.checkpoint_date will be False
+        # Otherwise, it'll be a date object, which will evaluate to True
+        if self.checkpoint_date:
+            return True
+
+        if (self.project_path / "DESCRIPTION").exists():
+            # no R snapshot date set through runtime.txt
+            # Set it to two days ago from today
+            self._checkpoint_date = datetime.date.today() - datetime.timedelta(days=2)
+            return True
