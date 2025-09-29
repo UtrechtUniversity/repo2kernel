@@ -17,8 +17,8 @@ class Project:
         self.project_path = Path(project_path)
         self.env_name = f"{self.project_path.name}-{uuid.uuid4().hex}"
         self.env_path = env_path
-        self.detected = self.detect()
         self.log = log
+        self.dependency_files = {}
 
     def kernel_display_name(self):
         return f"{self.kernel_base_display_name} {self.project_path.name}"

@@ -10,11 +10,8 @@ class PythonProject(Project):
     kernel_package_py = "ipykernel"
 
     def __init__(self, project_path, env_path, log, **kwargs):
-        self.use_requirements_txt = False
-        self.use_pipfile = False
-        self.use_pipfile_lock = False
-        super().__init__(project_path, env_path, log, **kwargs)
-        self.detect()
+        Project.__init__(self, project_path, env_path, log, **kwargs)
+        self.detected = self.detect()
 
     def create_environment(self, interpreter_base_dir="", dry_run=False):
         Project.create_environment(self, self.env_path) # sanity checks
@@ -30,11 +27,11 @@ class PythonProject(Project):
             ["uv", "venv", self.env_path, "--python", self.interpreter_version]
         ]
 
-        if self.use_requirements_txt:
-            cmds.append(["uv", "pip", "install", "-r", str(self.binder_path('requirements.txt').resolve())])
-        elif self.use_pipfile_lock:
+        if f := self.dependency_files.get("requirements.txt"):
+            cmds.append(["uv", "pip", "install", "-r", f])
+        elif self.dependency_files.get("Pipfile.lock"):
             cmds.append(["uvx", "pipenv", "install", "--ignore-pipfile --dev"])
-        elif self.use_pipfile:
+        elif self.dependency_files.get("Pipfile"):
             cmds.append(["uvx", "pipenv", "install", "--skip-lock", "--dev"])
         else:
             cmds.append(["uv", "pip", "install", str(self.binder_dir)])
@@ -87,17 +84,21 @@ class PythonProject(Project):
         requirements_txt = self.binder_path("requirements.txt")
         pipfile = self.binder_path("Pipfile")
         pipfile_lock = self.binder_path("Pipfile.lock")
-        project_config_files = ["setup.py", "pyproject.toml"]
 
+        project_config_files = ["setup.py", "pyproject.toml"]
         for f in project_config_files:
-            if self.binder_path(f).exists():
+            if (dep_file := self.binder_path(f)).exists():
+                self.dependency_files[dep_file] = str(dep_file.resolve())
                 return True
 
-        self.use_requirements_txt = requirements_txt.exists()
-        self.use_pipfile_lock = pipfile_lock.exists()
-        self.use_pipfile = pipfile.exists()
+        has_pip_or_req_file = False
+        for f in [requirements_txt, pipfile_lock, pipfile]:
+            if f.exists():
+                self.dependency_files[f.name] = str(f.resolve())
+                has_pip_or_req_file = True
+        if has_pip_or_req_file:
+            return True
 
         name = self.runtime[0]
         if name:
             return name == "python"
-        return self.use_requirements_txt or self.use_pipfile_lock or self.use_pipfile

@@ -5,8 +5,8 @@ class RProject(Project):
     kernel_base_display_name = "R Kernel"
 
     def __init__(self, project_path, env_path, log, **kwargs):
-        super().__init__(project_path, env_path, log, **kwargs)
-        self.detect()
+        Project.__init__(self, project_path, env_path, log, **kwargs)
+        self.detected = self.detect()
 
     def r_create_kernel_cmd(self, name="", display_name="", prefix="", user=False):
         args = []
@@ -70,7 +70,8 @@ class RProject(Project):
         if self.checkpoint_date:
             return True
 
-        if (self.project_path / "DESCRIPTION").exists():
+        if (f := (self.project_path / "DESCRIPTION")).exists():
+            self.dependency_files["DESCRIPTION"] = str(f.resolve())
             # no R snapshot date set through runtime.txt
             # Set it to two days ago from today
             self._checkpoint_date = datetime.date.today() - datetime.timedelta(days=2)

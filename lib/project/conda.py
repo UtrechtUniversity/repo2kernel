@@ -17,10 +17,10 @@ class CondaProject(PythonProject, RProject):
     def __init__(self, project_path, env_path, log, **kwargs):
         PythonProject.__init__(self, project_path, env_path, log, **kwargs)
         RProject.__init__(self, project_path, env_path, log, **kwargs)
-        self.env_file = None
         self._environment_yaml = None
         self._env_file_dependencies = None
-        self.detect()
+        self.detected = self.detect()
+        print(self.log)
 
     # This method was adapted from https://github.com/jupyterhub/repo2docker
     # Repo2docker is licensed under the BSD-3 license:
@@ -29,13 +29,13 @@ class CondaProject(PythonProject, RProject):
     # All rights reserved.
     @property
     def environment_yaml(self):
-        if self._environment_yaml is None:
-            with open(self.env_file.resolve()) as f:
+        if not self.detected:
+            return {}
+        elif self._environment_yaml is None:
+            with open(self.dependency_files["environment.yml"]) as f:
                 env = yaml.safe_load(f) or {}
                 self._environment_yaml = env
                 return self._environment_yaml
-        elif not self.detected:
-            return {}
         else:
             return self._environment_yaml
 
@@ -95,7 +95,7 @@ class CondaProject(PythonProject, RProject):
             cmds.append(["conda", "install", "-p", self.env_path, self.kernel_package_r, "-y"])
         if self.uses_python:
             cmds.append(["conda", "install", "-p", self.env_path, self.kernel_package_py, "-y"])
-            if self.use_requirements_txt:
+            if self.dependency_files.get("requirements.txt"):
                 cmds.append(["conda", "run", "-p", self.env_path, "pip", "install", "-r", str(self.binder_path("requirements.txt").resolve())])
 
         # optional: conda clean --all -f -y
@@ -120,5 +120,8 @@ class CondaProject(PythonProject, RProject):
 
     def detect(self):
         """Check if current repo contains a Conda project."""
-        self.env_file = self.binder_path("environment.yml")
-        return self.env_file.exists()
+        env_yml = self.binder_path("environment.yml")
+        if env_yml.exists():
+            self.dependency_files["environment.yml"] = str(env_yml.resolve())
+            return True
+        return False
