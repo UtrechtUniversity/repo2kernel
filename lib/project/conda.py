@@ -19,6 +19,7 @@ class CondaProject(PythonProject, RProject):
         RProject.__init__(self, project_path, env_path, log, **kwargs)
         self.env_file = None
         self._environment_yaml = None
+        self._env_file_dependencies = None
         self.detect()
 
     # This method was adapted from https://github.com/jupyterhub/repo2docker
@@ -38,7 +39,13 @@ class CondaProject(PythonProject, RProject):
         else:
             return self._environment_yaml
 
-    # This method was copied from https://github.com/jupyterhub/repo2docker
+    def env_file_dependencies(self):
+        if not self._env_file_dependencies:
+            self._env_file_dependencies = self.environment_yaml.get("dependencies", [])
+        for dep in self._env_file_dependencies:
+            yield dep
+
+    # This method was modified from https://github.com/jupyterhub/repo2docker
     # Repo2docker is licensed under the BSD-3 license:
     # https://github.com/jupyterhub/repo2docker/blob/main/LICENSE
     # Copyright (c) 2017, Project Jupyter Contributors
@@ -47,32 +54,27 @@ class CondaProject(PythonProject, RProject):
     def uses_r(self):
         """Detect whether the project uses R.
 
-        Will return True when a package prefixed with 'r-' is being installed.
+        Will return True when a package prefixed with 'r-' is contained in environment.yml
         """
         if not hasattr(self, "_uses_r"):
-            deps = self.environment_yaml.get("dependencies", [])
             self._uses_r = False
-            for dep in deps:
-                if not isinstance(dep, str):
-                    continue
-                if dep.startswith("r-"):
+            for dep in self.env_file_dependencies():
+                if isinstance(dep, str) and dep.startswith("r-"):
                     self._uses_r = True
                     break
         return self._uses_r
 
-
     @property
     def uses_python(self):
-        """Detect whether the project uses Python.
+        """Detect whether a python version is declared in environment.yml
         """
         if not hasattr(self, "_uses_python"):
-            deps = self.environment_yaml.get("dependencies", [])
             self._uses_python = False
-            for dep in deps:
+            for dep in self.env_file_dependencies():
                 if isinstance(dep, dict) and dep.get('pip', False):
                     self._uses_python = True
                     break                
-                if PYTHON_REGEX.match(dep):
+                if isinstance(dep, str) and PYTHON_REGEX.match(dep):
                     self._uses_python = True
                     break
         return self._uses_python
