@@ -19,7 +19,7 @@ class CondaProject(PythonProject, RProject):
         RProject.__init__(self, project_path, env_path, log, **kwargs)
         self._environment_yaml = None
         self._env_file_dependencies = None
-        self.detected = self.detect()
+        self.detect()
 
     # This method was adapted from https://github.com/jupyterhub/repo2docker
     # Repo2docker is licensed under the BSD-3 license:
@@ -120,10 +120,11 @@ class CondaProject(PythonProject, RProject):
 
         return True
 
+    @Project.wrap_detect
     def detect(self):
         """Check if current repo contains a Conda project."""
         env_yml = self.binder_path("environment.yml")
         if env_yml.exists():
             self.dependency_files["environment.yml"] = str(env_yml)
-            return True
+            return CondaProject
         return False

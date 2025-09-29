@@ -18,6 +18,8 @@ class Project:
         self.env_name = f"{self.project_path.name}-{uuid.uuid4().hex}"
         self.env_path = Path(env_path)
         self.log = log
+        if not hasattr(self, "detected_languages"):
+            self.detected_languages = []
         self.dependency_files = {}
 
     def kernel_display_name(self):
@@ -120,9 +122,21 @@ class Project:
         """Locate a file"""
         return self.binder_dir / path
 
+    @property
+    def detected(self):
+        return len(self.detected_languages) > 0
+
+    def wrap_detect(func):
+        def decorate(self):
+            result = func(self)
+            if result:
+                self.detected_languages.append(result)
+            return result
+        return decorate
+
     def detect(self):
         """Check if project contains the kind of environment we're looking for."""
-        return False
+        return self.__class__ in self.detected_languages
 
     def run(self, commands, env, dry_run=False):
         self.log.info("Will run the following commands:")

@@ -6,7 +6,7 @@ class RProject(Project):
 
     def __init__(self, project_path, env_path, log, **kwargs):
         Project.__init__(self, project_path, env_path, log, **kwargs)
-        self.detected = self.detect()
+        RProject.detect(self)
 
     def cmd_r_create_kernel(self, name="", display_name="", prefix="", user=False):
         args = []
@@ -58,6 +58,7 @@ class RProject(Project):
     # https://github.com/jupyterhub/repo2docker/blob/main/LICENSE
     # Copyright (c) 2017, Project Jupyter Contributors
     # All rights reserved.
+    @Project.wrap_detect
     def detect(self):
         """
         Check if current repo contains an R Project.
@@ -68,11 +69,11 @@ class RProject(Project):
         # If no date is found, then self.checkpoint_date will be False
         # Otherwise, it'll be a date object, which will evaluate to True
         if self.checkpoint_date:
-            return True
+            return RProject
 
         if (f := (self.project_path / "DESCRIPTION")).exists():
             self.dependency_files["DESCRIPTION"] = str(f.resolve())
             # no R snapshot date set through runtime.txt
             # Set it to two days ago from today
             self._checkpoint_date = datetime.date.today() - datetime.timedelta(days=2)
-            return True
+            return RProject

@@ -11,7 +11,7 @@ class PythonProject(Project):
 
     def __init__(self, project_path, env_path, log, **kwargs):
         Project.__init__(self, project_path, env_path, log, **kwargs)
-        self.detected = self.detect()
+        PythonProject.detect(self)
 
     def cmd_install_python(self, interpreter_base_dir):
         env = {}
@@ -88,7 +88,8 @@ class PythonProject(Project):
 
         # TODO: log using default version
         return self.default_python_version
-
+    
+    @Project.wrap_detect
     def detect(self):
         """Check if current repo contains a Python project."""
         requirements_txt = self.binder_path("requirements.txt")
@@ -99,7 +100,7 @@ class PythonProject(Project):
         for f in project_config_files:
             if (dep_file := self.binder_path(f)).exists():
                 self.dependency_files[dep_file] = str(dep_file)
-                return True
+                return PythonProject
 
         has_pip_or_req_file = False
         for f in [requirements_txt, pipfile_lock, pipfile]:
@@ -107,8 +108,8 @@ class PythonProject(Project):
                 self.dependency_files[f.name] = str(f)
                 has_pip_or_req_file = True
         if has_pip_or_req_file:
-            return True
+            return PythonProject
 
         name = self.runtime[0]
-        if name:
-            return name == "python"
+        if name == "python":
+            return PythonProject
