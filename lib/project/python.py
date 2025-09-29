@@ -4,10 +4,10 @@ import tomllib
 class PythonProject(Project):
 
     name = "Python"
-    dependencies = ['uv']
     kernel_base_display_name = "Python Kernel"
     default_python_version="3"
-    kernel_package_py = "ipykernel"
+    kernel_package = "ipykernel"
+    dependencies = ["uv"]
 
     def __init__(self, project_path, env_path, log, **kwargs):
         Project.__init__(self, project_path, env_path, log, **kwargs)
@@ -28,30 +28,32 @@ class PythonProject(Project):
         ]
         return (cmds, {})
 
-    def create_environment(self, interpreter_base_dir="", install_python=True, dry_run=False):
-        Project.create_environment(self, self.env_path) # sanity check
+    @Project.sanity_check
+    def install_env_dependencies(self, base_cmd=[], dry_run=False):
+        cmds = []
+        if f := self.dependency_files.get("requirements.txt"):
+            cmds.append([*base_cmd, "uv", "pip", "install", "-r", f])
+        elif self.dependency_files.get("Pipfile.lock"):
+            cmds.append([*base_cmd, "uvx", "pipenv", "install", "--ignore-pipfile --dev"])
+        elif self.dependency_files.get("Pipfile"):
+            cmds.append([*base_cmd, "uvx", "pipenv", "install", "--skip-lock", "--dev"])
+        else:
+            cmds.append([*base_cmd, "uv", "pip", "install", str(self.binder_dir)])
+        cmds.append([*base_cmd, "uv", "pip", "install", self.kernel_package])
 
-        if install_python:
-            self.run(*self.cmd_install_python(interpreter_base_dir), dry_run=dry_run)
+        self.run(cmds, {"VIRTUAL_ENV": str(self.env_path) }, dry_run=dry_run)
+
+    def create_environment(self, interpreter_base_dir="", dry_run=False):
+        self.run(*self.cmd_install_python(interpreter_base_dir), dry_run=dry_run)
         if not self.env_path.exists():
             self.run(*self.cmd_init_environment(), dry_run=dry_run)
 
-        cmds = []
-        if f := self.dependency_files.get("requirements.txt"):
-            cmds.append(["uv", "pip", "install", "-r", f])
-        elif self.dependency_files.get("Pipfile.lock"):
-            cmds.append(["uvx", "pipenv", "install", "--ignore-pipfile --dev"])
-        elif self.dependency_files.get("Pipfile"):
-            cmds.append(["uvx", "pipenv", "install", "--skip-lock", "--dev"])
-        else:
-            cmds.append(["uv", "pip", "install", str(self.binder_dir)])
+        self.install_env_dependencies(dry_run=dry_run)
 
-        cmds.append(["uv", "pip", "install", self.kernel_package_py])
-
-        self.run(cmds, {"VIRTUAL_ENV": str(self.env_path) }, dry_run=dry_run)
         return True
 
-    def create_kernel(self, user=False, name="", display_name="", prefix="", base_cmd=["uv", "run", "--active"], dry_run=False):
+    @Project.sanity_check
+    def create_kernel(self, user=False, name="", display_name="", prefix="", base_cmd=[], dry_run=False):
         Project.create_kernel(self, self.env_path) # sanity checks
 
         options = {
@@ -62,21 +64,20 @@ class PythonProject(Project):
         }
 
         cmds = [
-            [*base_cmd, "python", "-m", self.kernel_package_py, "install", *self.__class__.dict2cli(options)]
+            [*base_cmd, "uv", "run", "--active", "python", "-m", self.kernel_package, "install", *self.__class__.dict2cli(options)]
         ]
 
         self.run(cmds, { "VIRTUAL_ENV": str(self.env_path) }, dry_run)
         return True
 
-    @property
-    def interpreter_version(self):
+    def get_interpreter_version(self):
         runtime_version = self.runtime[1]
         if runtime_version:
-            return runtime_version
+            return runtime_version.rstrip()
 
         python_version = self.project_path / ".python-version"
         if python_version.exists():
-            return python_version.read_text()
+            return python_version.read_text().rstrip()
 
         pyproject = self.project_path / "pyproject.toml"
         if pyproject.exists():
@@ -84,10 +85,14 @@ class PythonProject(Project):
                 data = tomllib.load(f)        
                 pyproject_version = data.get("project", {}).get("requires-python", None)
             if pyproject_version:
-                return pyproject_version
+                return pyproject_version.rstrip()
 
         # TODO: log using default version
         return self.default_python_version
+
+    @property
+    def interpreter_version(self):
+        return self.get_interpreter_version()
     
     @Project.wrap_detect
     def detect(self):

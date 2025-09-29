@@ -6,46 +6,62 @@ import subprocess, os
 class Project:
 
     name = "project"
-    dependencies = []
     kernel_base_display_name = "Kernel"
+    dependencies = []
 
     @classmethod
     def dict2cli(self, opts):
         return [f"--{k.replace('_', '-')}{f'={v}'}" for k,v in opts.items() if v]
 
-    def __init__(self, project_path, env_path, log, **kwargs):
+    def __init__(self, project_path, env_path, log, base_cmd = [], **kwargs):
         self.project_path = Path(project_path)
         self.env_name = f"{self.project_path.name}-{uuid.uuid4().hex}"
         self.env_path = Path(env_path)
+        self.base_cmd = base_cmd
         self.log = log
         if not hasattr(self, "detected_languages"):
-            self.detected_languages = []
+            self.detected_languages = set()
         self.dependency_files = {}
+        if not hasattr(self, "dependencies"):
+            self.dependencies = set()
 
     def kernel_display_name(self):
         return f"{self.kernel_base_display_name} {self.project_path.name}"
 
-    def check_dependencies(self):
+    def missing_dependencies(self):
+        result = {}
         for d in self.dependencies:
             if not which(d):
-                raise RuntimeError(f"Dependency {d} for {self.__class__.__name__} not found.")
-        return True
+                result.add(d)
+        return result
+
+    def check_dependencies(self):
+        return len(self.missing_dependencies()) == 0
 
     @property
     def interpreter_version(self):
         return ""
 
-    def create_environment(self, interpreter_base_dir="", dry_run=False):
-        if not self.detected:
-            raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {self.project_path.resolve()}")
-        self.check_dependencies()
-        self.log.info(f"CREATE {self.name} VENV: Attempting to install dependencies for {self.project_path.resolve()} into {self.env_path}.")
+    def sanity_check(func, *args, **kwargs):
+        def decorate(self, *args, **kwargs):
+            if not self.detected:
+                raise RuntimeError(f"No {self.name} environment detected in {self.project_path}")
+            self.check_dependencies()
+            return func(self, *args, **kwargs)
+        return decorate
 
+    @sanity_check
+    def install_env_dependencies(self, dry_run=False):
+        cmds = []
+        self.run(cmds, {}, dry_run=dry_run)
+
+    @sanity_check
+    def create_environment(self, interpreter_base_dir="", dry_run=False):
+        return True
+
+    @sanity_check
     def create_kernel(self, user=False, name="", display_name="", prefix="", dry_run=True, extra_kernel_opts={}):
-        if not self.detected:
-            raise RuntimeError(f"Cannot install dependencies, no {self.name} environment detected in {self.project_path.resolve()}")
-        self.check_dependencies()
-        self.log.info(f"CREATE KERNEL: Attempting to create kernel for {self.project_path.resolve()}.")
+        return True
 
     def detect(self):
         return True
@@ -130,7 +146,7 @@ class Project:
         def decorate(self):
             result = func(self)
             if result:
-                self.detected_languages.append(result)
+                self.detected_languages.add(result)
             return result
         return decorate
 

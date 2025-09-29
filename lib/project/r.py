@@ -3,6 +3,10 @@ from .base import Project
 class RProject(Project):
     name = "R"
     kernel_base_display_name = "R Kernel"
+    kernel_package = ""
+    dependencies = []
+    kernel_package = "IRkernel"
+    cran_mirror = "http://cran.us.r-project.org"
 
     def __init__(self, project_path, env_path, log, **kwargs):
         Project.__init__(self, project_path, env_path, log, **kwargs)
@@ -24,9 +28,17 @@ class RProject(Project):
             args.append("user=FALSE")
         return [f"IRkernel::installspec({','.join(args)})"]
 
-    def create_kernel(self, env_path, base_cmd=[], dry_run=False, **kwargs):
-        Project.create_kernel(self, env_path) # sanity checks
-        print(kwargs)
+    @Project.sanity_check
+    def install_env_dependencies(self, base_cmd=[], dry_run=False):
+        cmds = [
+            ["R", "--quiet", "-e", f"install.packages('{self.kernel_package}', repos='{self.cran_mirror}')"]
+        ]
+        # TODO: install dependencies from DESCRIPTION file if needed
+        self.run(cmds, {}, dry_run=dry_run)
+        return True
+
+    @Project.sanity_check
+    def create_kernel(self, base_cmd=[], dry_run=False, **kwargs):
         cmds = [
             [*base_cmd, "R", "--quiet", "-e", *self.cmd_r_create_kernel(**kwargs)]
         ]
