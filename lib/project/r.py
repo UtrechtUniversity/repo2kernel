@@ -3,14 +3,22 @@ from .base import Project
 class RProject(Project):
     name = "R"
     kernel_base_display_name = "R Kernel"
-    kernel_package = ""
     dependencies = []
-    kernel_package = "IRkernel"
+    kernel_package_r = "IRkernel"
     cran_mirror = "http://cran.us.r-project.org"
 
-    def __init__(self, project_path, env_path, log, **kwargs):
+    def __init__(self, project_path, env_path, log, lib_path="", **kwargs):
         Project.__init__(self, project_path, env_path, log, **kwargs)
         RProject.detect(self)
+
+    def pkg_args(self):            
+        args = {
+            'repos': self.cran_mirror
+        }
+        if (env_lib_path := self.env_path / "lib/R/library") and env_lib_path.exists():
+            args['lib'] = str(env_lib_path)
+        # TODO: set global lib path
+        return ", ".join([f"{k}='{v}'" for k,v in args.items() if v is not None])
 
     def cmd_r_create_kernel(self, name="", display_name="", prefix="", user=False):
         args = []
@@ -26,12 +34,12 @@ class RProject(Project):
             args.append("user=TRUE")
         else:
             args.append("user=FALSE")
-        return [f"IRkernel::installspec({','.join(args)})"]
+        return [f"{self.kernel_package_r}::installspec({','.join(args)})"]
 
     @Project.sanity_check
-    def install_env_dependencies(self, base_cmd=[], dry_run=False):
+    def create_environment(self, base_cmd=[], dry_run=False):
         cmds = [
-            ["R", "--quiet", "-e", f"install.packages('{self.kernel_package}', repos='{self.cran_mirror}')"]
+            [*base_cmd, "R", "--quiet", "-e", f"install.packages('{self.kernel_package_r}', {self.pkg_args()})"]
         ]
         # TODO: install dependencies from DESCRIPTION file if needed
         self.run(cmds, {}, dry_run=dry_run)

@@ -21,7 +21,8 @@ class Project:
         self.log = log
         if not hasattr(self, "detected_languages"):
             self.detected_languages = set()
-        self.dependency_files = {}
+        if not hasattr(self, "dependency_files"):
+            self.dependency_files = {}
         if not hasattr(self, "dependencies"):
             self.dependencies = set()
 

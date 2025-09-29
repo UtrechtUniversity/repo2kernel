@@ -6,49 +6,41 @@ class PythonProject(Project):
     name = "Python"
     kernel_base_display_name = "Python Kernel"
     default_python_version="3"
-    kernel_package = "ipykernel"
     dependencies = ["uv"]
+    kernel_package_py = "ipykernel"
 
     def __init__(self, project_path, env_path, log, **kwargs):
         Project.__init__(self, project_path, env_path, log, **kwargs)
         PythonProject.detect(self)
 
-    def cmd_install_python(self, interpreter_base_dir):
-        env = {}
-        if interpreter_base_dir:
-            env["UV_PYTHON_INSTALL_DIR"] = interpreter_base_dir
-        cmds = [
-            ["uv", "python", "install", self.interpreter_version]
-        ]
-        return (cmds, env)
-
-    def cmd_init_environment(self):
-        cmds =  [
-            ["uv", "venv", str(self.env_path), "--python", self.interpreter_version]
-        ]
-        return (cmds, {})
 
     @Project.sanity_check
-    def install_env_dependencies(self, base_cmd=[], dry_run=False):
+    def create_environment(self, interpreter_base_dir="", base_cmd=[], dry_run=False):
+        if not self.env_path.exists():
+            if dry_run:
+                self.log.info("Because we are in dry run mode, cannot ascertain if the enviroment directory was already created. Will proceed as if it was not.")
+            env = {}
+            if interpreter_base_dir:
+                env["UV_PYTHON_INSTALL_DIR"] = interpreter_base_dir
+            cmds = [
+                ["uv", "python", "install", self.python_version],
+                ["uv", "venv", str(self.env_path), "--python", self.python_version]
+            ]
+            self.run(cmds, env, dry_run=dry_run)
+
         cmds = []
+
         if f := self.dependency_files.get("requirements.txt"):
             cmds.append([*base_cmd, "uv", "pip", "install", "-r", f])
         elif self.dependency_files.get("Pipfile.lock"):
             cmds.append([*base_cmd, "uvx", "pipenv", "install", "--ignore-pipfile --dev"])
         elif self.dependency_files.get("Pipfile"):
             cmds.append([*base_cmd, "uvx", "pipenv", "install", "--skip-lock", "--dev"])
-        else:
+        elif self.dependency_files.get("setup.py") or self.dependency_files.get("pyproject.toml"):
             cmds.append([*base_cmd, "uv", "pip", "install", str(self.binder_dir)])
-        cmds.append([*base_cmd, "uv", "pip", "install", self.kernel_package])
+        cmds.append([*base_cmd, "uv", "pip", "install", self.kernel_package_py])
 
         self.run(cmds, {"VIRTUAL_ENV": str(self.env_path) }, dry_run=dry_run)
-
-    def create_environment(self, interpreter_base_dir="", dry_run=False):
-        self.run(*self.cmd_install_python(interpreter_base_dir), dry_run=dry_run)
-        if not self.env_path.exists():
-            self.run(*self.cmd_init_environment(), dry_run=dry_run)
-
-        self.install_env_dependencies(dry_run=dry_run)
 
         return True
 
@@ -64,36 +56,33 @@ class PythonProject(Project):
         }
 
         cmds = [
-            [*base_cmd, "uv", "run", "--active", "python", "-m", self.kernel_package, "install", *self.__class__.dict2cli(options)]
+            [*base_cmd, "uv", "run", "--active", "python", "-m", self.kernel_package_py, "install", *self.__class__.dict2cli(options)]
         ]
 
         self.run(cmds, { "VIRTUAL_ENV": str(self.env_path) }, dry_run)
         return True
 
-    def get_interpreter_version(self):
+    @property
+    def python_version(self):
         runtime_version = self.runtime[1]
         if runtime_version:
-            return runtime_version.rstrip()
-
-        python_version = self.project_path / ".python-version"
-        if python_version.exists():
-            return python_version.read_text().rstrip()
-
-        pyproject = self.project_path / "pyproject.toml"
-        if pyproject.exists():
+            version = runtime_version.rstrip()
+        elif (python_version_file := self.project_path / ".python-version") and python_version_file.exists():
+            version = python_version_file.read_text().rstrip()
+        elif (pyproject := self.project_path / "pyproject.toml") and pyproject.exists():
             with open(pyproject.resolve(), "rb") as f:
                 data = tomllib.load(f)        
                 pyproject_version = data.get("project", {}).get("requires-python", None)
             if pyproject_version:
-                return pyproject_version.rstrip()
-
+                version = pyproject_version.rstrip()
+            else:
+                version = None
+        if version:
+            #TODO sanity check on version
+            return version
         # TODO: log using default version
         return self.default_python_version
 
-    @property
-    def interpreter_version(self):
-        return self.get_interpreter_version()
-    
     @Project.wrap_detect
     def detect(self):
         """Check if current repo contains a Python project."""

@@ -100,9 +100,9 @@ class CondaProject(PythonProject, RProject):
             if project_type is not self.__class__:
                 for dep in project_type.missing_dependencies(self):
                     conda_install(dep)
-                if project_type == PythonProject and not self.uses_python:
-                   raise RuntimeError
-                project_type.install_env_dependencies(self, base_cmd=self.base_cmd, dry_run=dry_run)
+                if (project_type is PythonProject) and (v := self.python_version):
+                   conda_install(v)
+                project_type.create_environment(self, base_cmd=self.base_cmd, dry_run=dry_run)
 
         # optional: conda clean --all -f -y
 
@@ -121,6 +121,21 @@ class CondaProject(PythonProject, RProject):
                 project_type.create_kernel(self, user=user, name=f"{project_type.name}-{_name}", display_name=display_name, prefix=prefix, base_cmd=self.base_cmd, dry_run=dry_run)
 
         return True
+
+    def is_normal_version(self, v):
+        test = r"!<>=,"
+        return not any(x in test for x in v)
+
+    @property
+    def python_version(self):
+        if PythonProject in self.detected_languages and not self.uses_python:
+            v = super().python_version
+            if self.is_normal_version(v):
+                return f"python=={v}"
+            else:
+                return f"python{v}"
+            return 
+        return None
 
     @Project.wrap_detect
     def detect(self):
