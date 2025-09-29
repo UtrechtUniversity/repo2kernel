@@ -79,16 +79,19 @@ class CondaProject(PythonProject, RProject):
                     break
         return self._uses_python
 
+    def cmd_init_environment(self):
+        cmds = [
+            ["conda", "env", "create", "-f", str(self.binder_path("environment.yml").resolve()), "-p", self.env_path]
+        ]
+        return (cmds, {})
+
     def create_environment(self, **kwargs):
         Project.create_environment(self, **kwargs)
 
         dry_run = kwargs.get('dry_run', False)
 
-        cmds =  [
-            ["conda", "env", "create", "-f", str(self.binder_path("environment.yml").resolve()), "-p", self.env_path]
-        ]
+        self.run(*self.cmd_init_environment(), dry_run=dry_run)
 
-        self.run(cmds, {}, dry_run)
         cmds = []
 
         if self.uses_r:

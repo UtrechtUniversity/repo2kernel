@@ -13,20 +13,28 @@ class PythonProject(Project):
         Project.__init__(self, project_path, env_path, log, **kwargs)
         self.detected = self.detect()
 
-    def create_environment(self, interpreter_base_dir="", dry_run=False):
-        Project.create_environment(self, self.env_path) # sanity checks
-        env = {
-            "VIRTUAL_ENV": self.env_path,
-        }
-
+    def cmd_install_python(self, interpreter_base_dir):
+        env = {}
         if interpreter_base_dir:
             env["UV_PYTHON_INSTALL_DIR"] = interpreter_base_dir
-
         cmds = [
-            ["uv", "python", "install", self.interpreter_version],
+            ["uv", "python", "install", self.interpreter_version]
+        ]
+        return (cmds, env)
+
+    def cmd_init_environment(self):
+        cmds =  [
             ["uv", "venv", self.env_path, "--python", self.interpreter_version]
         ]
+        return (cmds, {})
 
+    def create_environment(self, interpreter_base_dir="", dry_run=False):
+        Project.create_environment(self, self.env_path) # sanity check
+
+        self.run(*self.cmd_install_python(interpreter_base_dir), dry_run=dry_run)
+        self.run(*self.cmd_init_environment(), dry_run=dry_run)
+
+        cmds = []
         if f := self.dependency_files.get("requirements.txt"):
             cmds.append(["uv", "pip", "install", "-r", f])
         elif self.dependency_files.get("Pipfile.lock"):
@@ -38,7 +46,7 @@ class PythonProject(Project):
 
         cmds.append(["uv", "pip", "install", self.kernel_package_py])
 
-        self.run(cmds, env, dry_run=dry_run)
+        self.run(cmds, {"VIRTUAL_ENV": self.env_path }, dry_run=dry_run)
         return True
 
     def create_kernel(self, user=False, name="", display_name="", prefix="", base_cmd=["uv", "run", "--active"], dry_run=False):
