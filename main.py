@@ -3,10 +3,9 @@ from lib import PythonProject, CondaProject
 
 import argparse
 
-PROJECT_TYPES = {
+PROJECT_TYPES = [
     PythonProject,
-    CondaProject
-}
+]
 
 CONTENT_PROVIDERS = {
     repo2docker.contentproviders.Local,
@@ -53,13 +52,13 @@ class CliCommands():
     logging.basicConfig(level=logging.INFO)
 
     @classmethod
-    def _detect(self, directory, env_create_path=None):
+    def _detect(self, directory, env_create_path=None, dry_run=False):
         detected_project_types = []
 
         self.log.info(f"Detecting dependencies in project {directory}:")
 
         for project_class in PROJECT_TYPES:
-            project = project_class(directory, env_create_path, self.log)
+            project = project_class(directory, env_create_path, self.log, dry_run=dry_run)
             if project.detected:
                 self.log.info(f"Discovered {project.name} project in {directory}")
                 detected_project_types.append(project)
@@ -102,7 +101,7 @@ class CliCommands():
 
     @classmethod
     def detect(self, directory=""):
-        detected_project_types = self._detect(directory)
+        detected_project_types = self._detect(directory, dry_run=True)
         for project in detected_project_types:
             print(f"Found dependency files in this directory: {project.binder_dir}")
             print(f"Interpreter: {project.name}")
@@ -110,10 +109,10 @@ class CliCommands():
 
     @classmethod
     def create(self, directory="", dry_run=False, virtual_env_dir="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_name="", kernel_display_name=""):
-        detected_project_types = self._detect(directory, env_create_path=virtual_env_dir)
+        detected_project_types = self._detect(directory, env_create_path=virtual_env_dir, dry_run=dry_run)
         for project in detected_project_types:
-            project.create_environment(interpreter_base_dir=interpreter_base_dir, dry_run=dry_run)
-            project.create_kernel(user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix, dry_run=dry_run)
+            project.create_environment(interpreter_base_dir=interpreter_base_dir)
+            project.create_kernel(user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix)
 
 if __name__ == "__main__":
     args = get_argparser().parse_args()

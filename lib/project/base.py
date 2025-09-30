@@ -13,18 +13,18 @@ class Project:
     def dict2cli(self, opts):
         return [f"--{k.replace('_', '-')}{f'={v}'}" for k,v in opts.items() if v]
 
-    def __init__(self, project_path, env_path, log, base_cmd = [], **kwargs):
+    @classmethod
+    def is_normal_version(self, v):
+        test = r"!<>=,"
+        return not any(x in test for x in v)
+
+    def __init__(self, project_path, env_path, log, base_cmd = [], dry_run=False, **kwargs):
+        self.dry_run = dry_run
         self.project_path = Path(project_path)
         self.env_name = f"{self.project_path.name}-{uuid.uuid4().hex}"
         self.env_path = Path(env_path)
-        self.base_cmd = base_cmd
         self.log = log
-        if not hasattr(self, "detected_languages"):
-            self.detected_languages = set()
-        if not hasattr(self, "dependency_files"):
-            self.dependency_files = {}
-        if not hasattr(self, "dependencies"):
-            self.dependencies = set()
+        self.base_cmd = []
 
     def kernel_display_name(self):
         return f"{self.kernel_base_display_name} {self.project_path.name}"
@@ -32,12 +32,12 @@ class Project:
     def missing_dependencies(self):
         result = {}
         for d in self.dependencies:
-            if not which(d):
-                result.add(d)
-        return result
+            if not which(d): # TODO: conditionally add conda env to path
+                yield d
 
-    def check_dependencies(self):
-        return len(self.missing_dependencies()) == 0
+    @property
+    def dependencies_ok(self):
+        return len(list(self.missing_dependencies())) == 0
 
     @property
     def interpreter_version(self):
@@ -45,23 +45,20 @@ class Project:
 
     def sanity_check(func, *args, **kwargs):
         def decorate(self, *args, **kwargs):
-            if not self.detected:
+            if not self.detect():
                 raise RuntimeError(f"No {self.name} environment detected in {self.project_path}")
-            self.check_dependencies()
+            if not self.dependencies_ok:
+                raise RuntimeError(f"Missing dependencies: {missing}")
             return func(self, *args, **kwargs)
         return decorate
 
-    @sanity_check
-    def install_env_dependencies(self, dry_run=False):
-        cmds = []
-        self.run(cmds, {}, dry_run=dry_run)
 
     @sanity_check
-    def create_environment(self, interpreter_base_dir="", dry_run=False):
+    def create_environment(self, interpreter_base_dir=""):
         return True
 
     @sanity_check
-    def create_kernel(self, user=False, name="", display_name="", prefix="", dry_run=True, extra_kernel_opts={}):
+    def create_kernel(self, user=False, name="", display_name="", prefix=""):
         return True
 
     def detect(self):
@@ -138,24 +135,12 @@ class Project:
     def binder_path(self, path):
         """Locate a file"""
         return self.binder_dir / path
-
-    @property
-    def detected(self):
-        return len(self.detected_languages) > 0
-
-    def wrap_detect(func):
-        def decorate(self):
-            result = func(self)
-            if result:
-                self.detected_languages.add(result)
-            return result
-        return decorate
-
+    
     def detect(self):
         """Check if project contains the kind of environment we're looking for."""
-        return self.__class__ in self.detected_languages
+        return True
 
-    def run(self, commands, env, dry_run=False):
+    def run(self, commands, env):
         self.log.info("Will run the following commands:")
         for cmd in commands:
             self.log.info(cmd)
@@ -163,7 +148,7 @@ class Project:
             self.log.info("...with the following environment variables:")
             for k,v in env.items():
                 self.log.info(f"{k}={v}")
-        if not dry_run:
+        if not self.dry_run:
             for cmd in commands:
                 p = subprocess.Popen(cmd, env=(os.environ.copy() | env), shell=isinstance(cmd, str))
                 exit_code = p.wait()

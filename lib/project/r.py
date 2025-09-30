@@ -1,17 +1,19 @@
-from .base import Project
+from .conda import CondaProject
 
-class RProject(Project):
+class RCondaProject(CondaProject):
     name = "R"
     kernel_base_display_name = "R Kernel"
     dependencies = []
-    kernel_package_r = "IRkernel"
+    r_base_pkg = "conda-forge::r-base"
+    kernel_package_r = "conda-forge::r-irkernel"
     cran_mirror = "http://cran.us.r-project.org"
 
     def __init__(self, project_path, env_path, log, lib_path="", **kwargs):
-        Project.__init__(self, project_path, env_path, log, **kwargs)
-        RProject.detect(self)
+        super().__init__(project_path, env_path, log, force_init=True, **kwargs)
+        self.dependency_file = ""
+        self.detected = self.detect()
 
-    def pkg_args(self):            
+    def pkg_args(self):
         args = {
             'repos': self.cran_mirror
         }
@@ -36,21 +38,22 @@ class RProject(Project):
             args.append("user=FALSE")
         return [f"{self.kernel_package_r}::installspec({','.join(args)})"]
 
+    @CondaProject.conda_install_dependencies
     @Project.sanity_check
-    def create_environment(self, base_cmd=[], dry_run=False):
-        cmds = [
-            [*base_cmd, "R", "--quiet", "-e", f"install.packages('{self.kernel_package_r}', {self.pkg_args()})"]
-        ]
+    def create_environment(self, base_cmd=[]):
+        if not super().r_version: # r not declared in environment.yml, conda install it
+            self.conda_install(f"{r_base_pkg}=={self.r_version}")
+        self.conda_install(kernel_package_r)
+
         # TODO: install dependencies from DESCRIPTION file if needed
-        self.run(cmds, {}, dry_run=dry_run)
         return True
 
     @Project.sanity_check
-    def create_kernel(self, base_cmd=[], dry_run=False, **kwargs):
+    def create_kernel(self, base_cmd=[], **kwargs):
         cmds = [
             [*base_cmd, "R", "--quiet", "-e", *self.cmd_r_create_kernel(**kwargs)]
         ]
-        self.run(cmds, {}, dry_run=dry_run)
+        self.run(cmds, {})
         return True
 
     # This method was copied from https://github.com/jupyterhub/repo2docker
@@ -78,7 +81,6 @@ class RProject(Project):
     # https://github.com/jupyterhub/repo2docker/blob/main/LICENSE
     # Copyright (c) 2017, Project Jupyter Contributors
     # All rights reserved.
-    @Project.wrap_detect
     def detect(self):
         """
         Check if current repo contains an R Project.
@@ -89,11 +91,15 @@ class RProject(Project):
         # If no date is found, then self.checkpoint_date will be False
         # Otherwise, it'll be a date object, which will evaluate to True
         if self.checkpoint_date:
-            return RProject
+            return True
 
         if (f := (self.project_path / "DESCRIPTION")).exists():
-            self.dependency_files["DESCRIPTION"] = str(f.resolve())
+            self.dependency_file =f 
             # no R snapshot date set through runtime.txt
             # Set it to two days ago from today
             self._checkpoint_date = datetime.date.today() - datetime.timedelta(days=2)
-            return RProject
+            return True
+
+    @property
+    def r_version(self):
+        return "4.5.1"
