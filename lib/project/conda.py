@@ -2,26 +2,44 @@ from .base import Project
 from pathlib import Path
 import re
 import yaml
+import os
+
+EMPTY_CONDA_ENV = Path(os.path.dirname(os.path.realpath(__file__))) / ".." / "environment.yml"
 
 # pattern for parsing conda dependency line
-PYTHON_REGEX = re.compile(r"python\s*[=<>]+\s*([\d\.]*)")
-R_BASE_REGEX = re.compile(r"r-base\s*[=<>]+\s*([\d\.]*)")
+PYTHON_VERSION_REGEX = re.compile(r"python\s*[=<>]+\s*([\d\.]*)")
+R_VERSION_REGEX = re.compile(r"r-base\s*[=<>]+\s*([\d\.]*)")
 
 
 class CondaProject(Project):
 
-    name = "Conda"
+    project_type = "conda"
     dependencies = ["conda"]
 
-    def __init__(self, project_path, env_path, log, force_init=False, **kwargs):
-        super().__init__(project_path, env_path, log, **kwargs)
+    @classmethod
+    def conda_version(self, pkg, version):
+        if version:
+            if self.is_normal_version(version):
+                return f"{pkg}=={version}"
+            else:
+                return f"{pkg}{version}"
+        else:
+            return pkg
+
+    def __init__(self, project_path, env_base_path, log, force_init=False, **kwargs):
+        super().__init__(project_path, env_base_path, log, **kwargs)
         self._environment_yaml = None
         self._env_file_dependencies = None
-        self.env_initialized = False
-        self.detected = self.detect()
+        self.env_file = self.binder_path("environment.yml")
+        self.detected = CondaProject.detect(self)
         if self.detected or force_init:
             self.base_cmd = ["conda", "run", "-p", str(self.env_path)]
+        if force_init:
             CondaProject.create_environment(self)
+
+    @property
+    def conda_env_initialized(self):
+        return self.env_prefix == "conda" and (self.env_path.exists() or self.dry_run)
 
     # This method was adapted from https://github.com/jupyterhub/repo2docker
     # Repo2docker is licensed under the BSD-3 license:
@@ -30,10 +48,10 @@ class CondaProject(Project):
     # All rights reserved.
     @property
     def environment_yaml(self):
-        if not self.detected:
+        if not self.env_file.exists():
             return {}
         elif self._environment_yaml is None:
-            with open(self.binder_path("environment.yml")) as f:
+            with open(str(self.env_file)) as f:
                 env = yaml.safe_load(f) or {}
                 self._environment_yaml = env
                 return self._environment_yaml
@@ -71,24 +89,28 @@ class CondaProject(Project):
     # Decorator fur use in subclasses
     def conda_install_dependencies(func, *args, **kwargs):
         def decorate(self, *args, **kwargs):
-            if self.env_initialized: # conda env exists
+            if self.conda_env_initialized: # conda env exists
                 for dep in self.missing_dependencies():
                     self.log.info(f"Missing dependency '{dep}', attempting to install it using conda...")
                     self.conda_install(d)
             return func(self, *args, **kwargs)
         return decorate
 
-    @Project.sanity_check
+    @Project.check_dependencies
     def create_environment(self, **kwargs):
-        cmd = ["conda", "env", "create"]
+        if self.conda_env_initialized:
+            return True
+
+        cmd = ["conda", "env", "create", "-f",]
         if self.detected:
-            cmd.extend(["-f", str(self.binder_path("environment.yml").resolve())])
+            cmd.append(str(self.binder_path("environment.yml")))
+        else:
+            cmd.append(str(EMPTY_CONDA_ENV))
         cmd.extend(["-p", str(self.env_path)])
         result = self.run([cmd], {})
-        if result:
-            self.env_initialized = True
         return result
 
+    @Project.check_dependencies
     def create_kernel(self, user=False, name="", display_name="", prefix=""):
         return True
 
@@ -97,7 +119,7 @@ class CondaProject(Project):
         """Detect whether a python version is declared in environment.yml
         """
         for dep in self.env_file_dependencies():         
-            if isinstance(dep, str) and PYTHON_REGEX.match(dep):
+            if isinstance(dep, str) and PYTHON_VERSION_REGEX.match(dep):
                 return True
                 break
 
@@ -106,10 +128,14 @@ class CondaProject(Project):
         """Detect whether an R version is declared in environment.yml
         """
         for dep in self.env_file_dependencies():
-            if isinstance(dep, str) and R_BASE_REGEX.match(dep):
+            if isinstance(dep, str) and R_VERSION_REGEX.match(dep):
                 return True
                 break
 
     def detect(self):
         """Check if current repo contains a Conda project."""
-        return self.binder_path("environment.yml").exists()
+        return self.env_file.exists()
+
+
+    def interpreter_version(self):
+        return "not applicable"

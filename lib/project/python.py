@@ -4,24 +4,25 @@ import tomllib
 
 class PythonProject(CondaProject):
 
-    name = "Python"
+    project_type = "python"
     kernel_base_display_name = "Python Kernel"
     default_python_version="3"
     dependencies = ["uv"]
     kernel_package_py = "ipykernel"
 
-    def __init__(self, project_path, env_path, log, **kwargs):
-        super().__init__(project_path, env_path, log, **kwargs)
+    def __init__(self, project_path, env_base_path, log, **kwargs):
+        super().__init__(project_path, env_base_path, log, **kwargs)
         self.dependency_file = ""
         self.detected = self.detect()
 
+    @Project.check_detected
     @CondaProject.conda_install_dependencies
-    @Project.sanity_check
+    @Project.check_dependencies
     def create_environment(self, interpreter_base_dir=""):
         if not super().python_version: # python was not installed from environment.yml
-            if self.env_path.exists(): # use conda to install python
+            if self.conda_env_initialized: # use conda to install python
                 v = self.python_version
-                self.conda_install(f"python=={v}" if self.is_normal_version(v) else f"python{v}")
+                self.conda_install(self.__class__.conda_version("python", v))
             else: # use uv to install python
                 env = {}
                 if interpreter_base_dir:
@@ -48,6 +49,9 @@ class PythonProject(CondaProject):
 
         return True
 
+    @Project.check_detected
+    @CondaProject.conda_install_dependencies
+    @Project.check_dependencies
     def create_kernel(self, user=False, name="", display_name="", prefix=""):
         Project.create_kernel(self, self.env_path) # sanity checks
 
@@ -111,3 +115,10 @@ class PythonProject(CondaProject):
         name = self.runtime[0]
         if name == "python":
             return True
+
+        if super().python_version:
+            return True
+
+
+    def interpreter_version(self):
+        return super().python_version or self.python_version or ""

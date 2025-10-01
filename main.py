@@ -1,10 +1,16 @@
 import repo2docker.contentproviders
-from lib import PythonProject, CondaProject
+from lib import PythonProject, CondaProject, RCondaProject
 
 import argparse
 
+SUCCESS = 0
+NOTHING_FOUND = 2
+CREATION_FAILED = 3
+
 PROJECT_TYPES = [
+    CondaProject,
     PythonProject,
+    RCondaProject,
 ]
 
 CONTENT_PROVIDERS = {
@@ -52,21 +58,6 @@ class CliCommands():
     logging.basicConfig(level=logging.INFO)
 
     @classmethod
-    def _detect(self, directory, env_create_path=None, dry_run=False):
-        detected_project_types = []
-
-        self.log.info(f"Detecting dependencies in project {directory}:")
-
-        for project_class in PROJECT_TYPES:
-            project = project_class(directory, env_create_path, self.log, dry_run=dry_run)
-            if project.detected:
-                self.log.info(f"Discovered {project.name} project in {directory}")
-                detected_project_types.append(project)
-        if len(detected_project_types) == 0:
-            self.log.warning("Could not determine project type!")
-        return detected_project_types
-
-    @classmethod
     # This method was adapted from https://github.com/jupyterhub/repo2docker
     # Repo2docker is licensed under the BSD-3 license:
     # https://github.com/jupyterhub/repo2docker/blob/main/LICENSE
@@ -101,22 +92,46 @@ class CliCommands():
 
     @classmethod
     def detect(self, directory=""):
-        detected_project_types = self._detect(directory, dry_run=True)
-        for project in detected_project_types:
-            print(f"Found dependency files in this directory: {project.binder_dir}")
-            print(f"Interpreter: {project.name}")
-            print(f"Version: {project.interpreter_version}")
+        found = False
+        for project_cls in PROJECT_TYPES:
+            project = project_cls(directory, "", self.log, dry_run=True)
+
+            if not project.detected:
+                continue
+            
+            found = True
+
+            print(f"Discovered project in {directory}")
+                
+            print(f"Found dependency files in: {project.binder_dir}")
+            print(f"Interpreter: {project.project_type}")
+            print(f"Version: {project.interpreter_version() or 'not defined'}")
+        if not found:
+            print(f"No projects found in {directory}!")
+            return NOTHING_FOUND
+        return SUCCESS
 
     @classmethod
     def create(self, directory="", dry_run=False, virtual_env_dir="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_name="", kernel_display_name=""):
-        detected_project_types = self._detect(directory, env_create_path=virtual_env_dir, dry_run=dry_run)
-        for project in detected_project_types:
-            project.create_environment(interpreter_base_dir=interpreter_base_dir)
-            project.create_kernel(user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix)
+        env_prefix = None
+        try:            
+            for project_cls in PROJECT_TYPES:
+                project = project_cls(directory, virtual_env_dir, self.log, env_prefix=env_prefix, dry_run=dry_run)
+                if project.detected:
+                    project.create_environment(interpreter_base_dir=interpreter_base_dir)
+                    project.create_kernel(user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix)
+                    if type(project) == CondaProject:
+                        env_prefix = "conda"
+        except RuntimeError as e:
+            self.log.warning(e)
+            return CREATION_FAILED
+        return SUCCESS
+        
 
 if __name__ == "__main__":
     args = get_argparser().parse_args()
     command = getattr(CliCommands, args.subparser_name)
     opts = vars(args)
     del opts['subparser_name']
-    command(**opts)
+    code = command(**opts)
+    exit(code)

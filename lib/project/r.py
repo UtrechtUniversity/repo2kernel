@@ -1,26 +1,21 @@
 from .conda import CondaProject
+from .base import Project
+
+import datetime
 
 class RCondaProject(CondaProject):
-    name = "R"
+    project_type = "R"
     kernel_base_display_name = "R Kernel"
     dependencies = []
     r_base_pkg = "conda-forge::r-base"
     kernel_package_r = "conda-forge::r-irkernel"
-    cran_mirror = "http://cran.us.r-project.org"
 
-    def __init__(self, project_path, env_path, log, lib_path="", **kwargs):
-        super().__init__(project_path, env_path, log, force_init=True, **kwargs)
+    def __init__(self, project_path, env_base_path, log, **kwargs):
+        env_prefix = kwargs.get("env_prefix", "conda")
+        kwargs["env_prefix"] = env_prefix
+        super().__init__(project_path, env_base_path, log, force_init=True, **kwargs)
         self.dependency_file = ""
         self.detected = self.detect()
-
-    def pkg_args(self):
-        args = {
-            'repos': self.cran_mirror
-        }
-        if (env_lib_path := self.env_path / "lib/R/library") and env_lib_path.exists():
-            args['lib'] = str(env_lib_path)
-        # TODO: set global lib path
-        return ", ".join([f"{k}='{v}'" for k,v in args.items() if v is not None])
 
     def cmd_r_create_kernel(self, name="", display_name="", prefix="", user=False):
         args = []
@@ -36,22 +31,25 @@ class RCondaProject(CondaProject):
             args.append("user=TRUE")
         else:
             args.append("user=FALSE")
-        return [f"{self.kernel_package_r}::installspec({','.join(args)})"]
+        return [f"IRkernel::installspec({','.join(args)})"]
 
+    @Project.check_detected
     @CondaProject.conda_install_dependencies
-    @Project.sanity_check
-    def create_environment(self, base_cmd=[]):
-        if not super().r_version: # r not declared in environment.yml, conda install it
-            self.conda_install(f"{r_base_pkg}=={self.r_version}")
-        self.conda_install(kernel_package_r)
+    @Project.check_dependencies
+    def create_environment(self,  **kwargs):
+        if not super().r_version:
+            v = self.r_version
+            if self.r_version or not super().uses_r:
+                self.conda_install(self.__class__.conda_version(self.r_base_pkg, v))
+        self.conda_install(self.kernel_package_r)
 
-        # TODO: install dependencies from DESCRIPTION file if needed
+        # TODO: install additional dependencies from DESCRIPTION file if needed
         return True
 
-    @Project.sanity_check
-    def create_kernel(self, base_cmd=[], **kwargs):
+    @Project.check_detected
+    def create_kernel(self, **kwargs):
         cmds = [
-            [*base_cmd, "R", "--quiet", "-e", *self.cmd_r_create_kernel(**kwargs)]
+            [*self.base_cmd, "R", "--quiet", "-e", *self.cmd_r_create_kernel(**kwargs)]
         ]
         self.run(cmds, {})
         return True
@@ -99,7 +97,14 @@ class RCondaProject(CondaProject):
             # Set it to two days ago from today
             self._checkpoint_date = datetime.date.today() - datetime.timedelta(days=2)
             return True
+        
+        if super().uses_r:
+            return True
 
     @property
     def r_version(self):
-        return "4.5.1"
+        # TODO: get version from DESCRIPTION
+        return ""
+
+    def interpreter_version(self):
+        return super().r_version or self.r_version or ""

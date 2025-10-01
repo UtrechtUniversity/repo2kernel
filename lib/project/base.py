@@ -5,7 +5,7 @@ import subprocess, os
 
 class Project:
 
-    name = "project"
+    project_type = "project"
     kernel_base_display_name = "Kernel"
     dependencies = []
 
@@ -18,16 +18,23 @@ class Project:
         test = r"!<>=,"
         return not any(x in test for x in v)
 
-    def __init__(self, project_path, env_path, log, base_cmd = [], dry_run=False, **kwargs):
+    def __init__(self, project_path, env_base_path, log, base_cmd = [], env_prefix=None, dry_run=False, **kwargs):
         self.dry_run = dry_run
         self.project_path = Path(project_path)
-        self.env_name = f"{self.project_path.name}-{uuid.uuid4().hex}"
-        self.env_path = Path(env_path)
+        self.env_base_path = env_base_path
+        self.env_prefix = env_prefix or self.__class__.project_type
+        self.env_path = Path(env_base_path) / self.env_prefix / f"{self.project_path.name}"
         self.log = log
         self.base_cmd = []
+        self.detected = False
+
+    @property
+    def env_name(self):
+        # TODO: normalize?
+        return f"{self.project_path.name}"
 
     def kernel_display_name(self):
-        return f"{self.kernel_base_display_name} {self.project_path.name}"
+        return f"{self.kernel_base_display_name} {self.env_name}"
 
     def missing_dependencies(self):
         result = {}
@@ -39,25 +46,26 @@ class Project:
     def dependencies_ok(self):
         return len(list(self.missing_dependencies())) == 0
 
-    @property
     def interpreter_version(self):
         return ""
 
-    def sanity_check(func, *args, **kwargs):
+    def check_dependencies(func, *args, **kwargs):
         def decorate(self, *args, **kwargs):
-            if not self.detect():
-                raise RuntimeError(f"No {self.name} environment detected in {self.project_path}")
             if not self.dependencies_ok:
                 raise RuntimeError(f"Missing dependencies: {missing}")
             return func(self, *args, **kwargs)
         return decorate
 
+    def check_detected(func, *args, **kwargs):
+        def decorate(self, *args, **kwargs):
+            if not self.detect():
+                raise RuntimeError(f"No {self.name} environment detected in {self.project_path}")
+            return func(self, *args, **kwargs)
+        return decorate
 
-    @sanity_check
     def create_environment(self, interpreter_base_dir=""):
         return True
 
-    @sanity_check
     def create_kernel(self, user=False, name="", display_name="", prefix=""):
         return True
 
