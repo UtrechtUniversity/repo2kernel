@@ -34,9 +34,8 @@ class PythonProject(CondaProject):
                 self.run(cmds, env)
 
         cmds = []
-
-        if f := self.dependency_file.name == "requirements.txt":
-            cmds.append([*self.base_cmd, "uv", "pip", "install", "-r", f])
+        if self.dependency_file.name == "requirements.txt":
+            cmds.append([*self.base_cmd, "uv", "pip", "install", "-r", str(self.dependency_file)])
         elif self.dependency_file.name == "Pipfile.lock":
             cmds.append([*self.base_cmd, "uvx", "pipenv", "install", "--ignore-pipfile --dev"])
         elif self.dependency_file.name == "Pipfile":
@@ -118,7 +117,6 @@ class PythonProject(CondaProject):
 
         if super().python_version:
             return True
-
 
     def interpreter_version(self):
         return super().python_version or self.python_version or ""
