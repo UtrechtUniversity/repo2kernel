@@ -18,12 +18,13 @@ class Project:
         test = r"!<>=,"
         return not any(x in test for x in v)
 
-    def __init__(self, project_path, env_base_path, log, base_cmd = [], env_type=None, dry_run=False, **kwargs):
+    def __init__(self, project_path, env_base_path, log, base_cmd = [], env_type=None, env_name="", dry_run=False, **kwargs):
         self.dry_run = dry_run
         self.project_path = Path(project_path)
         self.env_base_path = env_base_path
         self.env_type = env_type or self.__class__.project_type
-        self.env_path = Path(env_base_path) / self.env_type / f"{self.project_path.name}"
+        self._env_name = env_name or self.project_path.name
+        self.env_path = Path(env_base_path) / self.env_type / self.env_name
         self.log = log
         self.base_cmd = []
         self.detected = False
@@ -31,7 +32,7 @@ class Project:
     @property
     def env_name(self):
         # TODO: normalize?
-        return f"{self.project_path.name}"
+        return f"{self._env_name}"
 
     def kernel_display_name(self):
         return f"{self.kernel_base_display_name} {self.env_name}"

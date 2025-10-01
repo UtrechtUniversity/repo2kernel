@@ -41,11 +41,11 @@ def get_argparser():
 
     create_parser.add_argument('directory', help='Project to create kernel for')
     create_parser.add_argument('--dry-run', action='store_true', help='if enabled, will only print the commands to be run, not actually execute them')
-    create_parser.add_argument('--virtual-env-dir', required=True, help='path where the newly created environment for the project wil be saved')
+    create_parser.add_argument('--env-name', help='name of the environment')
+    create_parser.add_argument('--base-env-dir', required=True, help='base path under which the newly created environment for the project wil be saved')
     create_parser.add_argument('--interpreter-base-dir', help='base path where newly fetched versions of the interpreter used in the project will be saved')
     create_parser.add_argument('--kernel-user', action='store_true', help='whether to install the kernel only for the current user')
     create_parser.add_argument('--kernel-prefix', help='path prefix for kernel install location')
-    create_parser.add_argument('--kernel-name', help='name of the kernel')
     create_parser.add_argument('--kernel-display-name', help='display name of the kernel')
 
     return parser
@@ -112,14 +112,14 @@ class CliCommands():
         return SUCCESS
 
     @classmethod
-    def create(self, directory="", dry_run=False, virtual_env_dir="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_name="", kernel_display_name=""):
+    def create(self, directory="", dry_run=False, base_env_dir="", env_name="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_display_name=""):
         env_type = None
         try:            
             for project_cls in PROJECT_TYPES:
-                project = project_cls(directory, virtual_env_dir, self.log, env_type=env_type, dry_run=dry_run)
+                project = project_cls(directory, base_env_dir, self.log, env_type=env_type, env_name=env_name, dry_run=dry_run)
                 if project.detected:
                     project.create_environment(interpreter_base_dir=interpreter_base_dir)
-                    project.create_kernel(user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix)
+                    project.create_kernel(user=kernel_user, name=env_name, display_name=kernel_display_name, prefix=kernel_prefix)
                     if type(project) == CondaProject:
                         env_type = "conda"
         except RuntimeError as e:
