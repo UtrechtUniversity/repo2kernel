@@ -39,7 +39,7 @@ class CondaProject(Project):
 
     @property
     def conda_env_initialized(self):
-        return self.env_prefix == "conda" and (self.env_path.exists() or self.dry_run)
+        return self.env_prefix == "conda" and self.env_path.exists()
 
     # This method was adapted from https://github.com/jupyterhub/repo2docker
     # Repo2docker is licensed under the BSD-3 license:
@@ -84,7 +84,10 @@ class CondaProject(Project):
         return self._uses_r
 
     def conda_install(self, pkg):
-        self.run([["conda", "install", "-p", str(self.env_path), pkg, "-y"]], {})
+        try:
+            return self.run([["conda", "install", "-p", str(self.env_path), pkg, "-y"]], {})
+        except RuntimeError:
+            return False
 
     # Decorator fur use in subclasses
     def conda_install_dependencies(func, *args, **kwargs):
@@ -92,7 +95,9 @@ class CondaProject(Project):
             if self.conda_env_initialized: # conda env exists
                 for dep in self.missing_dependencies():
                     self.log.info(f"Missing dependency '{dep}', attempting to install it using conda...")
-                    self.conda_install(d)
+                    result = self.conda_install(d)
+                    if not result:
+                        raise RuntimeError(f"Fatal error: could not conda install dependency '{dep}'.")
             return func(self, *args, **kwargs)
         return decorate
 
@@ -100,6 +105,8 @@ class CondaProject(Project):
     def create_environment(self, **kwargs):
         if self.conda_env_initialized:
             return True
+        elif self.dry_run:
+            self.log.info("Dry run enabled. If previous commands were supposed to create a conda env, they haven't. In that case, you may see another attempt to create a conda env.")
 
         cmd = ["conda", "env", "create", "-f",]
         if self.detected:

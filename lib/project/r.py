@@ -6,7 +6,7 @@ import datetime
 class RCondaProject(CondaProject):
     project_type = "R"
     kernel_base_display_name = "R Kernel"
-    dependencies = []
+    dependencies = ["conda"]
     r_base_pkg = "conda-forge::r-base"
     kernel_package_r = "conda-forge::r-irkernel"
 

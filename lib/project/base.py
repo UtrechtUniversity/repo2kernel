@@ -42,16 +42,10 @@ class Project:
             if not which(d): # TODO: conditionally add conda env to path
                 yield d
 
-    @property
-    def dependencies_ok(self):
-        return len(list(self.missing_dependencies())) == 0
-
-    def interpreter_version(self):
-        return ""
-
     def check_dependencies(func, *args, **kwargs):
         def decorate(self, *args, **kwargs):
-            if not self.dependencies_ok:
+            missing = list(self.missing_dependencies())
+            if len(missing) > 0:
                 raise RuntimeError(f"Missing dependencies: {missing}")
             return func(self, *args, **kwargs)
         return decorate
@@ -165,3 +159,6 @@ class Project:
                 else:
                     self.log.info("...success")
         return True
+
+    def interpreter_version(self):
+        return ""
