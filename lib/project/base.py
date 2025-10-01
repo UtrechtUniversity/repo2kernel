@@ -1,7 +1,9 @@
 from pathlib import Path
 from shutil import which
-import uuid
-import subprocess, os
+import subprocess
+import os
+import re
+import datetime
 
 class Project:
 
@@ -38,7 +40,6 @@ class Project:
         return f"{self.kernel_base_display_name} {self.env_name}"
 
     def missing_dependencies(self):
-        result = {}
         for d in self.dependencies:
             if not which(d): # TODO: conditionally add conda env to path
                 yield d
@@ -138,10 +139,6 @@ class Project:
     def binder_path(self, path):
         """Locate a file"""
         return self.binder_dir / path
-    
-    def detect(self):
-        """Check if project contains the kind of environment we're looking for."""
-        return True
 
     def run(self, commands, env):
         self.log.info("Will run the following commands:")

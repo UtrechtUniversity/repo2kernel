@@ -95,7 +95,7 @@ class CondaProject(Project):
             if self.conda_env_initialized: # conda env exists
                 for dep in self.missing_dependencies():
                     self.log.info(f"Missing dependency '{dep}', attempting to install it using conda...")
-                    result = self.conda_install(d)
+                    result = self.conda_install(dep)
                     if not result:
                         raise RuntimeError(f"Fatal error: could not conda install dependency '{dep}'.")
             return func(self, *args, **kwargs)

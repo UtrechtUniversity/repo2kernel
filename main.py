@@ -120,7 +120,7 @@ class CliCommands():
                 if project.detected:
                     project.create_environment(interpreter_base_dir=interpreter_base_dir)
                     project.create_kernel(user=kernel_user, name=env_name, display_name=kernel_display_name, prefix=kernel_prefix)
-                    if type(project) == CondaProject:
+                    if type(project) is CondaProject:
                         env_type = "conda"
         except RuntimeError as e:
             self.log.warning(e)
