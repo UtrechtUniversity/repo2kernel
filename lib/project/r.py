@@ -11,8 +11,8 @@ class RCondaProject(CondaProject):
     kernel_package_r = "conda-forge::r-irkernel"
 
     def __init__(self, project_path, env_base_path, log, **kwargs):
-        env_prefix = kwargs.get("env_prefix", "conda")
-        kwargs["env_prefix"] = env_prefix
+        env_type = kwargs.get("env_type", "conda")
+        kwargs["env_type"] = env_type
         super().__init__(project_path, env_base_path, log, force_init=True, **kwargs)
         self.dependency_file = ""
         self.detected = self.detect()

@@ -39,7 +39,7 @@ class CondaProject(Project):
 
     @property
     def conda_env_initialized(self):
-        return self.env_prefix == "conda" and self.env_path.exists()
+        return self.env_type == "conda" and self.env_path.exists()
 
     # This method was adapted from https://github.com/jupyterhub/repo2docker
     # Repo2docker is licensed under the BSD-3 license:

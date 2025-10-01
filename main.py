@@ -113,15 +113,15 @@ class CliCommands():
 
     @classmethod
     def create(self, directory="", dry_run=False, virtual_env_dir="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_name="", kernel_display_name=""):
-        env_prefix = None
+        env_type = None
         try:            
             for project_cls in PROJECT_TYPES:
-                project = project_cls(directory, virtual_env_dir, self.log, env_prefix=env_prefix, dry_run=dry_run)
+                project = project_cls(directory, virtual_env_dir, self.log, env_type=env_type, dry_run=dry_run)
                 if project.detected:
                     project.create_environment(interpreter_base_dir=interpreter_base_dir)
                     project.create_kernel(user=kernel_user, name=kernel_name, display_name=kernel_display_name, prefix=kernel_prefix)
                     if type(project) == CondaProject:
-                        env_prefix = "conda"
+                        env_type = "conda"
         except RuntimeError as e:
             self.log.warning(e)
             return CREATION_FAILED
