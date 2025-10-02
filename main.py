@@ -9,11 +9,15 @@ SUCCESS = 0
 NOTHING_FOUND = 2
 CREATION_FAILED = 3
 
-# List of supported project types -- order is significant
-PROJECT_TYPES = [
-    CondaProject,
+# List of supported project languages
+LANGUAGES = [
     PythonProject,
     RCondaProject,
+]
+
+PROJECT_TYPES = [
+    CondaProject,
+    *LANGUAGES
 ]
 
 def get_argparser():
@@ -103,7 +107,7 @@ class CliCommands():
                 picked_content_provider = cp
                 self.log.info(f"Picked {cp.__class__.__name__} content provider.\n")
                 break
-        
+
         if picked_content_provider is None:
             self.log.error(f"No matching content provider found for {url}.")
 
@@ -136,18 +140,25 @@ class CliCommands():
 
     @classmethod
     def create(self, directory="", dry_run=False, base_env_dir="", env_name="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_display_name=""):
-        env_type = None
-        try:            
-            for project_cls in PROJECT_TYPES:
+        try:
+            base_project = CondaProject(directory, base_env_dir, self.log, env_name=env_name, dry_run=dry_run)
+
+            if base_project.detected:
+                base_project.create_environment()
+                env_type = "conda"
+            else:
+                env_type = ""
+
+            for project_cls in LANGUAGES:
                 project = project_cls(directory, base_env_dir, self.log, env_type=env_type, env_name=env_name, dry_run=dry_run)
                 if project.detected:
                     project.create_environment(interpreter_base_dir=interpreter_base_dir)
                     project.create_kernel(user=kernel_user, name=env_name, display_name=kernel_display_name, prefix=kernel_prefix)
-                    if type(project) is CondaProject:
-                        env_type = "conda"
+
         except RuntimeError as e:
             self.log.warning(e)
             return CREATION_FAILED
+
         return SUCCESS
         
 

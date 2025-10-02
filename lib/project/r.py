@@ -1,21 +1,35 @@
 from .conda import CondaProject
 from .base import Project
+from repo2docker.buildpacks.r import RBuildPack
 
+import platform
 import datetime
 
-class RCondaProject(CondaProject):
+class RCondaProject(CondaProject, RBuildPack):
     project_type = "R"
     kernel_base_display_name = "R Kernel"
     dependencies = ["conda"]
     r_base_pkg = "conda-forge::r-base"
     kernel_package_r = "conda-forge::r-irkernel"
+    default_posit_cran = "https://packagemanager.posit.co/cran/"
+    r_default_opts = ["R", "--no-site-file", "--no-save", "--no-restore", "--no-init-file", "--no-environ", "--quiet", "-e"]
 
     def __init__(self, project_path, env_base_path, log, **kwargs):
         env_type = kwargs.get("env_type", "conda")
         kwargs["env_type"] = env_type
         super().__init__(project_path, env_base_path, log, force_init=True, **kwargs)
-        self.dependency_file = ""
         self.detected = self.detect()
+        print(self.get_rspm_snapshot_url())
+
+    def get_rspm_snapshot_url(self, max_days_prior=7):
+        ubuntu_url = RBuildPack.get_rspm_snapshot_url(self, self.checkpoint_date, max_days_prior) # RBuildPack constructs a download URL for Ubuntu specifically
+        upsi = ubuntu_url.split('/')[-1] # returns a snapshot ID of the form '2025-09-24+GZQrDcph'
+        upsi_date = upsi[:10] # get only the date info
+
+        if platform.system() == 'Linux' and  platform.freedesktop_os_release().get('NAME') == 'Ubuntu':
+            return ubuntu_url
+        else:
+            return f"{self.default_posit_cran}{upsi_date}"
 
     def cmd_r_create_kernel(self, name="", display_name="", prefix="", user=False):
         args = []
@@ -32,24 +46,39 @@ class RCondaProject(CondaProject):
         else:
             args.append("user=FALSE")
         return [f"IRkernel::installspec({','.join(args)})"]
+        
 
     @Project.check_detected
     @CondaProject.conda_install_dependencies
-    @Project.check_dependencies
     def create_environment(self,  **kwargs):
         if not super().r_version:
             v = self.r_version
             if self.r_version or not super().uses_r:
                 self.conda_install(self.__class__.conda_version(self.r_base_pkg, v))
         self.conda_install(self.kernel_package_r)
+        self.conda_install("r-devtools")
 
-        # TODO: install additional dependencies from DESCRIPTION file if needed
+        cmds = []
+        repo = self.get_rspm_snapshot_url()
+
+        if (f := self.binder_path("install.R")) and f.exists():
+            cmds.append(
+                [*self.base_cmd, *self.r_default_opts, f'options(repos=c(CRAN="{repo}"))', "-e", f"source('{f}')"]
+            )
+
+        if (f := self.project_path / "DESCRIPTION") and f.exists():
+            cmds.append(
+                [*self.base_cmd, *self.r_default_opts, f"devtools::install_local('{f.parent}', repos='{repo}')"]
+            )
+
+        self.run(cmds, {})
+
         return True
 
     @Project.check_detected
     def create_kernel(self, **kwargs):
         cmds = [
-            [*self.base_cmd, "R", "--quiet", "-e", *self.cmd_r_create_kernel(**kwargs)]
+            [*self.base_cmd, *self.r_default_opts, *self.cmd_r_create_kernel(**kwargs)]
         ]
         self.run(cmds, {})
         return True
@@ -91,8 +120,7 @@ class RCondaProject(CondaProject):
         if self.checkpoint_date:
             return True
 
-        if (f := (self.project_path / "DESCRIPTION")).exists():
-            self.dependency_file =f 
+        if (self.project_path / "DESCRIPTION").exists():
             # no R snapshot date set through runtime.txt
             # Set it to two days ago from today
             self._checkpoint_date = datetime.date.today() - datetime.timedelta(days=2)

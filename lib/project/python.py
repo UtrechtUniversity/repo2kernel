@@ -17,7 +17,6 @@ class PythonProject(CondaProject):
 
     @Project.check_detected
     @CondaProject.conda_install_dependencies
-    @Project.check_dependencies
     def create_environment(self, interpreter_base_dir=""):
         if not super().python_version: # python was not installed from environment.yml
             if self.conda_env_initialized: # use conda to install python
@@ -52,7 +51,6 @@ class PythonProject(CondaProject):
 
     @Project.check_detected
     @CondaProject.conda_install_dependencies
-    @Project.check_dependencies
     def create_kernel(self, user=False, name="", display_name="", prefix=""):
         Project.create_kernel(self, self.env_path) # sanity checks
 
