@@ -1,5 +1,5 @@
 import repo2docker.contentproviders
-from lib import PythonProject, CondaProject, RCondaProject
+from lib import PythonProject, CondaProject, RCondaProject, JuliaProject
 from lib import Dataverse
 import argparse
 from shutil import which
@@ -13,6 +13,7 @@ CREATION_FAILED = 3
 LANGUAGES = [
     PythonProject,
     RCondaProject,
+    JuliaProject,
 ]
 
 PROJECT_TYPES = [

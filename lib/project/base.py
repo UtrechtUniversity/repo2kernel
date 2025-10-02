@@ -20,7 +20,8 @@ class Project:
         test = r"!<>=,"
         return not any(x in test for x in v)
 
-    def __init__(self, project_path, env_base_path, log, base_cmd = [], env_type=None, env_name="", dry_run=False, **kwargs):
+    def __init__(self, project_path, env_base_path, log, base_cmd = [], env_type=None, env_name="", force_init=False, dry_run=False, **kwargs):
+        self.force_init = force_init
         self.dry_run = dry_run
         self.project_path = Path(project_path)
         self.env_base_path = env_base_path
@@ -54,9 +55,11 @@ class Project:
 
     def check_detected(func, *args, **kwargs):
         def decorate(self, *args, **kwargs):
-            if not self.detect():
-                raise RuntimeError(f"No {self.name} environment detected in {self.project_path}")
-            return func(self, *args, **kwargs)
+            if not self.detected and not self.force_init:
+               self.log.warning(f"No {self.env_type} environment detected in {self.project_path}")
+               return False
+            else:
+                return func(self, *args, **kwargs)
         return decorate
 
     def create_environment(self, interpreter_base_dir=""):
@@ -154,8 +157,7 @@ class Project:
                 exit_code = p.wait()
                 if exit_code > 0:
                     raise RuntimeError(f"Error! repo2kernel is aborting after the following command failed:\n{cmd}")
-                else:
-                    self.log.info("...success")
+        self.log.info("...success")
         return True
 
     def interpreter_version(self):

@@ -33,15 +33,16 @@ class PythonProject(CondaProject):
                 self.run(cmds, env)
 
         cmds = []
-        match self.dependency_file.name:
-            case "pyproject.toml" | "setup.py":
-                cmds.append([*self.base_cmd, "uv", "pip", "install", str(self.binder_dir)])
-            case "Pipfile.lock":
-                cmds.append([*self.base_cmd, "uvx", "pipenv", "install", "--ignore-pipfile --dev"])
-            case "Pipfile":
-                cmds.append([*self.base_cmd, "uvx", "pipenv", "install", "--skip-lock", "--dev"])
-            case "requirements.txt":
-                cmds.append([*self.base_cmd, "uv", "pip", "install", "-r", str(self.dependency_file)])
+        if self.dependency_file:
+            match self.dependency_file.name:
+                case "pyproject.toml" | "setup.py":
+                    cmds.append([*self.base_cmd, "uv", "pip", "install", str(self.binder_dir)])
+                case "Pipfile.lock":
+                    cmds.append([*self.base_cmd, "uvx", "pipenv", "install", "--ignore-pipfile --dev"])
+                case "Pipfile":
+                    cmds.append([*self.base_cmd, "uvx", "pipenv", "install", "--skip-lock", "--dev"])
+                case "requirements.txt":
+                    cmds.append([*self.base_cmd, "uv", "pip", "install", "-r", str(self.dependency_file)])
 
         cmds.append([*self.base_cmd, "uv", "pip", "install", self.kernel_package_py])
 
@@ -61,8 +62,13 @@ class PythonProject(CondaProject):
             'prefix': prefix
         }
 
+        if self.conda_env_initialized:
+            python_cmd = ["python", "-m"]
+        else:
+            python_cmd = ["uv", "run", "--active", "python", "-m"]
+
         cmds = [
-            [*self.base_cmd, "uv", "run", "--active", "python", "-m", self.kernel_package_py, "install", *self.__class__.dict2cli(options)]
+            [*self.base_cmd, *python_cmd, self.kernel_package_py, "install", *self.__class__.dict2cli(options)]
         ]
 
         self.run(cmds, { "VIRTUAL_ENV": str(self.env_path) })
@@ -70,8 +76,9 @@ class PythonProject(CondaProject):
 
     @property
     def python_version(self):
-        if v := super().python_version:
-            return v
+        if version := super().python_version:
+            return version
+
         runtime_version = self.runtime[1]
         if runtime_version:
             version = runtime_version.rstrip()
@@ -119,4 +126,4 @@ class PythonProject(CondaProject):
             return True
 
     def interpreter_version(self):
-        return super().python_version or self.python_version or ""
+        return self.python_version

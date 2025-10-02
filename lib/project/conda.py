@@ -27,7 +27,7 @@ class CondaProject(Project):
             return pkg
 
     def __init__(self, project_path, env_base_path, log, force_init=False, **kwargs):
-        super().__init__(project_path, env_base_path, log, **kwargs)
+        super().__init__(project_path, env_base_path, log, force_init=force_init, **kwargs)
         self._environment_yaml = None
         self._env_file_dependencies = None
         self.env_file = self.binder_path("environment.yml")
@@ -101,12 +101,14 @@ class CondaProject(Project):
             return func(self, *args, **kwargs)
         return decorate
 
+    @Project.check_detected
     @Project.check_dependencies
     def create_environment(self, **kwargs):
-        if self.conda_env_initialized:
+        if self.conda_env_initialized or self.env_type != "conda":
             return True
         elif self.dry_run:
-            self.log.info("Dry run enabled. If previous commands were supposed to create a conda env, they haven't. In that case, you may see another attempt to create a conda env.")
+            self.log.info("Dry run enabled, will skip conda env creation and you will not see conda env creation command in the dry run output.")
+            return True
 
         cmd = ["conda", "env", "create", "-f",]
         if self.detected:
