@@ -34,14 +34,16 @@ class PythonProject(CondaProject):
                 self.run(cmds, env)
 
         cmds = []
-        if self.dependency_file.name == "requirements.txt":
-            cmds.append([*self.base_cmd, "uv", "pip", "install", "-r", str(self.dependency_file)])
-        elif self.dependency_file.name == "Pipfile.lock":
-            cmds.append([*self.base_cmd, "uvx", "pipenv", "install", "--ignore-pipfile --dev"])
-        elif self.dependency_file.name == "Pipfile":
-            cmds.append([*self.base_cmd, "uvx", "pipenv", "install", "--skip-lock", "--dev"])
-        elif self.dependency_file.name == "setup.py" or self.dependency_file.name == "pyproject.toml":
-            cmds.append([*self.base_cmd, "uv", "pip", "install", str(self.binder_dir)])
+        match self.dependency_file.name:
+            case "pyproject.toml" | "setup.py":
+                cmds.append([*self.base_cmd, "uv", "pip", "install", str(self.binder_dir)])
+            case "Pipfile.lock":
+                cmds.append([*self.base_cmd, "uvx", "pipenv", "install", "--ignore-pipfile --dev"])
+            case "Pipfile":
+                cmds.append([*self.base_cmd, "uvx", "pipenv", "install", "--skip-lock", "--dev"])
+            case "requirements.txt":
+                cmds.append([*self.base_cmd, "uv", "pip", "install", "-r", str(self.dependency_file)])
+
         cmds.append([*self.base_cmd, "uv", "pip", "install", self.kernel_package_py])
 
         self.run(cmds, {"VIRTUAL_ENV": str(self.env_path) })
