@@ -1,25 +1,20 @@
 import repo2docker.contentproviders
 from lib import PythonProject, CondaProject, RCondaProject
-
+from lib import Dataverse
 import argparse
+from shutil import which
 
+# Exit codes
 SUCCESS = 0
 NOTHING_FOUND = 2
 CREATION_FAILED = 3
 
+# List of supported project types -- order is significant
 PROJECT_TYPES = [
     CondaProject,
     PythonProject,
     RCondaProject,
 ]
-
-CONTENT_PROVIDERS = {
-    repo2docker.contentproviders.Local,
-    repo2docker.contentproviders.Zenodo,
-    repo2docker.contentproviders.Dataverse,
-    repo2docker.contentproviders.Mercurial,
-    repo2docker.contentproviders.Git,
-}
 
 def get_argparser():
     parser = argparse.ArgumentParser(
@@ -36,6 +31,7 @@ def get_argparser():
     fetch_parser.add_argument('url', help='URL to fetch. This program supports XYZ kinds of URLs')
     fetch_parser.add_argument('target', help='Where the downloaded project will be saved')
     fetch_parser.add_argument('--ref', help='Version of the project to be fetched (e.g. a git tag)')
+    fetch_parser.add_argument('--dataverse-json', help='Specify a JSON file containing additional dataverse instances.', action='append')
 
     detect_parser.add_argument('directory', help='Project to detect')
 
@@ -57,13 +53,38 @@ class CliCommands():
     log = logging.getLogger("repo2kernel")
     logging.basicConfig(level=logging.INFO)
 
+    # List of supported project store classes
+    CONTENT_PROVIDERS = [
+        repo2docker.contentproviders.Local,
+        repo2docker.contentproviders.Zenodo,
+        Dataverse,
+        repo2docker.contentproviders.Mercurial,
+        repo2docker.contentproviders.Git,
+    ]
+
+    @classmethod
+    def content_providers(self, dataverse_json=[]):
+        cps = self.CONTENT_PROVIDERS
+
+        if not which('hg'):
+            self.log.info("Did not find `hg` command on PATH, will ignore Mercurial URLs while fetching.")
+            try:
+                cps.remove(repo2docker.contentproviders.Mercurial)
+            except ValueError:
+                pass
+
+        for json_file in dataverse_json:
+            Dataverse.add_settings_file(json_file)
+
+        return cps
+
     @classmethod
     # This method was adapted from https://github.com/jupyterhub/repo2docker
     # Repo2docker is licensed under the BSD-3 license:
     # https://github.com/jupyterhub/repo2docker/blob/main/LICENSE
     # Copyright (c) 2017, Project Jupyter Contributors
     # All rights reserved.
-    def fetch(self, url="", target="", ref=""):
+    def fetch(self, url="", target="", ref="", dataverse_json=[]):
         """Fetch the contents of `url` and place it in `target`.
 
         The `ref` parameter specifies what "version" of the contents should be
@@ -72,9 +93,11 @@ class CliCommands():
         Iterate through possible content providers until a valid provider,
         based on URL, is found.
         """
+
         picked_content_provider = None
-        for ContentProvider in CONTENT_PROVIDERS:
+        for ContentProvider in self.content_providers(dataverse_json=dataverse_json):
             cp = ContentProvider()
+
             spec = cp.detect(url, ref=ref)
             if spec is not None:
                 picked_content_provider = cp
