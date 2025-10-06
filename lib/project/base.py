@@ -24,10 +24,10 @@ class Project:
         self.force_init = force_init
         self.dry_run = dry_run
         self.project_path = Path(project_path)
-        self.env_base_path = env_base_path
+        self.env_base_path = Path(env_base_path)
         self.env_type = env_type or self.__class__.project_type
         self._env_name = env_name or self.project_path.name
-        self.env_path = Path(env_base_path) / self.env_type / self.env_name
+        self.env_path = self.env_base_path / self.env_type / self.env_name
         self.log = log
         self.base_cmd = []
         self.detected = False

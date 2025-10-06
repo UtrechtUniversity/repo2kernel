@@ -6,5 +6,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "jupyter-repo2docker>=2025.8.0",
+    "packaging>=25.0",
     "pyyaml>=6.0.2",
 ]
+
+
+[project.scripts]
+repo2kernel = "main.py:main"
