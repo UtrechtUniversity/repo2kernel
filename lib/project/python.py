@@ -18,6 +18,7 @@ class PythonProject(CondaProject):
 
     @Project.check_detected
     @CondaProject.conda_install_dependencies
+    @Project.check_dependencies
     def create_environment(self, interpreter_base_dir=""):
         env = {
             "VIRTUAL_ENV": "" # set VIRTUAL_ENV to empty so as not to accidentally use the virtual env that repo2kernel is running in when installing python
@@ -35,6 +36,8 @@ class PythonProject(CondaProject):
                 ]
                 self.run(cmds, env)
 
+
+        # Check for existence of the various kinds of python dependency files in order, and install them if they exist
         cmds = []
         env["VIRTUAL_ENV"] = str(self.env_path)
 
@@ -57,6 +60,7 @@ class PythonProject(CondaProject):
 
     @Project.check_detected
     @CondaProject.conda_install_dependencies
+    @Project.check_dependencies
     def create_kernel(self, user=False, name="", display_name="", prefix=""):
         Project.create_kernel(self, self.env_path) # sanity checks
 
@@ -84,8 +88,8 @@ class PythonProject(CondaProject):
         if version := super().python_version:
             return version
 
-        runtime_version = self.runtime[1]
-        if runtime_version:
+        lang, runtime_version, _ = self.runtime
+        if lang == "python" and runtime_version:
             version = runtime_version.rstrip()
         elif (python_version_file := self.project_path / ".python-version") and python_version_file.exists():
             version = python_version_file.read_text().rstrip()
@@ -101,6 +105,7 @@ class PythonProject(CondaProject):
             #TODO sanity check on version
             return version
         # TODO: log using default version
+        return self.default_version
 
     def detect(self):
         """Check if current repo contains a Python project."""

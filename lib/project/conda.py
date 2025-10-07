@@ -33,13 +33,15 @@ class CondaProject(Project):
         self.env_file = self.binder_path("environment.yml")
         self.detected = CondaProject.detect(self)
         if self.detected or (force_init and self.env_type == "conda"):
-            self.base_cmd = ["conda", "run", "-p", str(self.env_path)]
+            self.conda_path = self.env_path
+            self.base_cmd = ["conda", "run", "-p", str(self.conda_path)]
         if force_init and self.env_type == "conda":
             CondaProject.create_environment(self)
 
+
     @property
     def conda_env_initialized(self):
-        return self.env_type == "conda" and self.env_path.exists()
+        return self.env_type == "conda" and self.conda_path.exists()
 
     # This method was adapted from https://github.com/jupyterhub/repo2docker
     # Repo2docker is licensed under the BSD-3 license:
@@ -84,8 +86,14 @@ class CondaProject(Project):
         return self._uses_r
 
     def conda_install(self, *args):
-        return self.run([["conda", "install", "-p", str(self.env_path), *args, "-y"]], {})
+        return self.run([["conda", "install", "-p", str(self.conda_path), *args, "-y"]], {})
 
+    def missing_dependencies(self):
+        if self.conda_env_initialized:
+            path = self.__class__.add_to_path(str((self.conda_path / "bin").resolve()))
+        else:
+            path = os.environ.get("PATH", "")
+        return super().missing_dependencies(path=path)
 
     # Decorator fur use in subclasses
     def conda_install_dependencies(func, *args, **kwargs):
@@ -95,9 +103,11 @@ class CondaProject(Project):
                 if len(missing) > 0:
                     self.log.info(f"Missing dependencies: {missing}")
                     self.log.info(f"Attempting to install missing dependencies using conda...")
-                    result = self.conda_install(*missing)
-                    if not result:
-                        raise RuntimeError(f"Fatal error: could not conda install dependency '{dep}'.")
+                    try:
+                        self.conda_install(*missing)
+                    except RuntimeError as err:
+                        self.log.error("Fatal error: could not install dependencies using conda:")
+                        raise err
             return func(self, *args, **kwargs)
         return decorate
 
@@ -115,7 +125,7 @@ class CondaProject(Project):
             cmd.append(str(self.binder_path("environment.yml")))
         else:
             cmd.append(str(EMPTY_CONDA_ENV))
-        cmd.extend(["-p", str(self.env_path)])
+        cmd.extend(["-p", str(self.conda_path)])
         result = self.run([cmd], {})
         return result
 

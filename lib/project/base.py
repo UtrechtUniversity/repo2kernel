@@ -8,6 +8,7 @@ import re
 import datetime
 import tempfile
 import uuid
+import platform
 
 class Project(BaseImage):
 
@@ -15,6 +16,10 @@ class Project(BaseImage):
     kernel_base_display_name = "Kernel"
     dependencies = []
     default_version=""
+
+    @classmethod
+    def add_to_path(self, *args):
+        return os.pathsep.join([*args, os.environ.get("PATH", "")])
 
     @classmethod
     def dict2cli(self, opts):
@@ -71,8 +76,8 @@ class Project(BaseImage):
     def kernel_display_name(self, name):
         return f"{self.kernel_base_display_name} {name or self.env_name}"
 
-    def missing_dependencies(self):
-        return [d for d in self.dependencies if not which(d)] # TODO: conditionally add conda env to path
+    def missing_dependencies(self, path=os.environ.get("PATH", "")):
+        return [d for d in self.dependencies if not which(d, path=path)]
 
     def check_dependencies(func, *args, **kwargs):
         def decorate(self, *args, **kwargs):

@@ -16,7 +16,8 @@ class RProject(CondaProject, RBuildPack):
     default_version = "4.4.2" # this mimicks the default r version in repo2docker (2025.8.0)
 
     def __init__(self, project_path, env_base_path, log, interpreter_version="", force_init=False, **kwargs):
-        kwargs["env_type"] = kwargs.get("env_type", "conda")
+        if not kwargs.get("env_type"):
+            kwargs["env_type"] = "conda"
         super().__init__(project_path, env_base_path, log, force_init=True, interpreter_version=interpreter_version, **kwargs)
         self.detected = self.detect()
 
@@ -52,6 +53,7 @@ class RProject(CondaProject, RBuildPack):
 
     @Project.check_detected
     @CondaProject.conda_install_dependencies
+    @Project.check_dependencies
     def create_environment(self,  **kwargs):
         install_pkgs = [self.kernel_package_r, "r-devtools"]
         if not super().uses_r or not super().r_version:
@@ -78,6 +80,7 @@ class RProject(CondaProject, RBuildPack):
         return True
 
     @Project.check_detected
+    @Project.check_dependencies
     def create_kernel(self, **kwargs):
         cmds = [
             [*self.base_cmd, *self.r_default_opts, *self.cmd_r_create_kernel(**kwargs)]
