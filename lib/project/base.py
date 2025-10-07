@@ -1,15 +1,20 @@
+from repo2docker.buildpacks import BaseImage
+
 from pathlib import Path
 from shutil import which
 import subprocess
 import os
 import re
 import datetime
+import tempfile
+import uuid
 
-class Project:
+class Project(BaseImage):
 
     project_type = "project"
     kernel_base_display_name = "Kernel"
     dependencies = []
+    default_version=""
 
     @classmethod
     def dict2cli(self, opts):
@@ -17,37 +22,61 @@ class Project:
 
     @classmethod
     def is_normal_version(self, v):
+        if not v:
+            return False
         test = r"!<>=,"
         return not any(x in test for x in v)
 
-    def __init__(self, project_path, env_base_path, log, base_cmd = [], env_type=None, env_name="", force_init=False, dry_run=False, **kwargs):
+    def __init__(self, project_path, env_base_path, log, base_cmd = [], interpreter_version="", env_type=None, env_name="", force_init=False, dry_run=False, **kwargs):
         self.force_init = force_init
         self.dry_run = dry_run
-        self.project_path = Path(project_path)
-        self.env_base_path = Path(env_base_path)
-        self.env_type = env_type or self.__class__.project_type
-        self._env_name = env_name or self.project_path.name
-        self.env_path = self.env_base_path / self.env_type / self.env_name
         self.log = log
         self.base_cmd = []
         self.detected = False
+
+        self.env_base_path = Path(env_base_path)
+        self.env_type = env_type or self.__class__.project_type
+
+        if project_path:
+            self._interpreter_version = ""
+            self.project_path = Path(project_path)
+            self._env_name = env_name or self.project_path.name
+        elif self.force_init:
+            # we have no project dir, but will force the creation of a new environment
+            self._tmp_dir = tempfile.TemporaryDirectory()
+            self.project_path =  Path(self._tmp_dir.name) # mock a project directory that is empty, so no dependency files will be detected
+            self._interpreter_version = interpreter_version or self.default_version
+            if env_name:
+                self._env_name = env_name
+            elif self.is_normal_version(self._interpreter_version):
+                self._env_name = f"v{self._interpreter_version}"
+            else:
+                self._env_name = uuid.uuid4().hex
+        else:
+            raise ValueError("Either project_path must be set, or force_init must be True.")
+
+        self.env_path = self.env_base_path / self.env_type / self.env_name
+
+
+    def __del__(self):
+        if getattr(self, '_tmp_dir', False):
+            self.log.debug(f"Cleaning up temporary directory {self._tmp_dir}")
+            self._tmp_dir.cleanup()
 
     @property
     def env_name(self):
         # TODO: normalize?
         return f"{self._env_name}"
 
-    def kernel_display_name(self):
-        return f"{self.kernel_base_display_name} {self.env_name}"
+    def kernel_display_name(self, name):
+        return f"{self.kernel_base_display_name} {name or self.env_name}"
 
     def missing_dependencies(self):
-        for d in self.dependencies:
-            if not which(d): # TODO: conditionally add conda env to path
-                yield d
+        return [d for d in self.dependencies if not which(d)] # TODO: conditionally add conda env to path
 
     def check_dependencies(func, *args, **kwargs):
         def decorate(self, *args, **kwargs):
-            missing = list(self.missing_dependencies())
+            missing = self.missing_dependencies()
             if len(missing) > 0:
                 raise RuntimeError(f"Missing dependencies: {missing}")
             return func(self, *args, **kwargs)
@@ -70,53 +99,6 @@ class Project:
 
     def detect(self):
         return True
-
-    @property
-    def runtime(self):
-        """
-        Return parsed contents of runtime.txt
-
-        Returns (runtime, version, date), tuple components may be None.
-        Returns (None, None, None) if runtime.txt not found.
-
-        Supported formats:
-          name-version
-          name-version-yyyy-mm-dd
-          name-yyyy-mm-dd
-        """
-        if hasattr(self, "_runtime"):
-            return self._runtime
-
-        self._runtime = (None, None, None)
-
-        runtime_path = self.binder_path("runtime.txt")
-        try:
-            with open(runtime_path) as f:
-                runtime_txt = f.read().strip()
-        except FileNotFoundError:
-            return self._runtime
-
-        name = None
-        version = None
-        date = None
-
-        parts = runtime_txt.split("-")
-        if len(parts) not in (2, 4, 5) or any(not (p) for p in parts):
-            raise ValueError(f"Invalid runtime.txt: {runtime_txt}")
-
-        name = parts[0]
-
-        if len(parts) in (2, 5):
-            version = parts[1]
-
-        if len(parts) in (4, 5):
-            date = "-".join(parts[-3:])
-            if not re.match(r"\d\d\d\d-\d\d-\d\d", date):
-                raise ValueError(f"Invalid runtime.txt date: {date}")
-            date = datetime.datetime.fromisoformat(date).date()
-
-        self._runtime = (name, version, date)
-        return self._runtime
 
     @property
     def binder_dir(self):
@@ -149,16 +131,17 @@ class Project:
             self.log.info(cmd)
         if len(env.keys()) > 0:
             self.log.info("...with the following environment variables:")
-            for k,v in env.items():
-                self.log.info(f"{k}={v}")
+            self.log.info(env)
         if not self.dry_run:
             for cmd in commands:
-                p = subprocess.Popen(cmd, env=(os.environ.copy() | env), shell=isinstance(cmd, str))
+                p = subprocess.Popen(cmd, env=(os.environ.copy() | env), shell=isinstance(cmd, str), cwd=self.project_path)
                 exit_code = p.wait()
                 if exit_code > 0:
                     raise RuntimeError(f"Error! repo2kernel is aborting after the following command failed:\n{cmd}")
-        self.log.info("...success")
+                else:
+                    self.log.info("...success")
         return True
 
+    @property
     def interpreter_version(self):
-        return ""
+        return self._interpreter_version

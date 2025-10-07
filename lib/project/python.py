@@ -1,12 +1,13 @@
 from .conda import CondaProject
 from .base import Project
 import tomllib
+import os
 
 class PythonProject(CondaProject):
 
     project_type = "python"
     kernel_base_display_name = "Python Kernel"
-    default_python_version="3"
+    default_version="3"
     dependencies = ["uv"]
     kernel_package_py = "ipykernel"
 
@@ -18,21 +19,25 @@ class PythonProject(CondaProject):
     @Project.check_detected
     @CondaProject.conda_install_dependencies
     def create_environment(self, interpreter_base_dir=""):
+        env = {
+            "VIRTUAL_ENV": "" # set VIRTUAL_ENV to empty so as not to accidentally use the virtual env that repo2kernel is running in when installing python
+        }
+
         if not super().python_version: # python was not installed from environment.yml
             if self.conda_env_initialized: # use conda to install python
                 v = self.python_version
                 self.conda_install(self.__class__.conda_version("python", v))
             else: # use uv to install python
-                env = {}
-                if interpreter_base_dir:
-                    env["UV_PYTHON_INSTALL_DIR"] = interpreter_base_dir
+                env["UV_PYTHON_INSTALL_DIR"] = interpreter_base_dir or os.environ.get("UV_PYTHON_INSTALL_DIR", str(self.env_base_path / "uv"))
                 cmds = [
-                    ["uv", "python", "install", self.python_version],
-                    ["uv", "venv", str(self.env_path), "--python", self.python_version]
+                    ["uv", "python", "install", self.interpreter_version],
+                    ["uv", "venv", str(self.env_path), "--python", self.interpreter_version]
                 ]
                 self.run(cmds, env)
 
         cmds = []
+        env["VIRTUAL_ENV"] = str(self.env_path)
+
         if self.dependency_file:
             match self.dependency_file.name:
                 case "pyproject.toml" | "setup.py":
@@ -46,7 +51,7 @@ class PythonProject(CondaProject):
 
         cmds.append([*self.base_cmd, "uv", "pip", "install", self.kernel_package_py])
 
-        self.run(cmds, {"VIRTUAL_ENV": str(self.env_path) })
+        self.run(cmds, env)
 
         return True
 
@@ -56,8 +61,8 @@ class PythonProject(CondaProject):
         Project.create_kernel(self, self.env_path) # sanity checks
 
         options = {
-            'name': name or self.env_name,
-            'display_name': display_name or self.kernel_display_name(),
+            'name': f"python-{name or self.env_name}",
+            'display_name': self.kernel_display_name(display_name),
             'user': user,
             'prefix': prefix
         }
@@ -65,7 +70,7 @@ class PythonProject(CondaProject):
         if self.conda_env_initialized:
             python_cmd = ["python", "-m"]
         else:
-            python_cmd = ["uv", "run", "--active", "python", "-m"]
+            python_cmd = ["uv", "run", "--active", "--no-sync", "python", "-m"]
 
         cmds = [
             [*self.base_cmd, *python_cmd, self.kernel_package_py, "install", *self.__class__.dict2cli(options)]
@@ -96,7 +101,6 @@ class PythonProject(CondaProject):
             #TODO sanity check on version
             return version
         # TODO: log using default version
-        return self.default_python_version
 
     def detect(self):
         """Check if current repo contains a Python project."""
@@ -125,5 +129,6 @@ class PythonProject(CondaProject):
         if super().python_version:
             return True
 
+    @property
     def interpreter_version(self):
-        return self.python_version
+        return super().interpreter_version or self.python_version

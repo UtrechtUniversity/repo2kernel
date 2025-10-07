@@ -3,7 +3,6 @@ from lib import PythonProject, CondaProject, RProject, JuliaProject
 from lib import Dataverse
 import argparse
 from shutil import which
-import tempfile
 
 def get_argparser():
     parser = argparse.ArgumentParser(
@@ -16,6 +15,7 @@ def get_argparser():
     fetch_parser = subparsers.add_parser('fetch', help='fetch a project from an online datasource')
     detect_parser = subparsers.add_parser('detect', help='detect a directory for depedencies and output results')
     create_parser = subparsers.add_parser('create', help='create kernel for a directory')
+    create_empty_parser = subparsers.add_parser('new', help='create kernel for specific interpreter version, without any other requirements')
 
     fetch_parser.add_argument('url', help='URL to fetch. This program supports XYZ kinds of URLs')
     fetch_parser.add_argument('target', help='Where the downloaded project will be saved')
@@ -33,6 +33,15 @@ def get_argparser():
     create_parser.add_argument('--kernel-prefix', help='path prefix for kernel install location')
     create_parser.add_argument('--kernel-display-name', help='display name of the kernel')
 
+    create_empty_parser.add_argument('language', help='Language to create kernel for. Valid values: `python`, `r`, or `julia`.')
+    create_empty_parser.add_argument('--version', help='the version of the interpreter for the chosen language to use')
+    create_empty_parser.add_argument('--dry-run', action='store_true', help='if enabled, will only print the commands to be run, not actually execute them')
+    create_empty_parser.add_argument('--base-env-dir', required=True, help='base path under which the newly created environment for the project wil be saved')
+    create_empty_parser.add_argument('--interpreter-base-dir', help='base path where newly fetched versions of the interpreter used in the project will be saved')
+    create_empty_parser.add_argument('--kernel-user', action='store_true', help='whether to install the kernel only for the current user')
+    create_empty_parser.add_argument('--kernel-prefix', help='path prefix for kernel install location')
+    create_empty_parser.add_argument('--kernel-display-name', help='display name of the kernel')
+
     return parser
 
 class CliCommands():
@@ -40,7 +49,7 @@ class CliCommands():
     import logging
 
     log = logging.getLogger("repo2kernel")
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO) # TODO: make log level toggable
 
     # Exit codes
     SUCCESS = 0
@@ -139,6 +148,24 @@ class CliCommands():
             print(f"No projects found in {directory}!")
             return self.NOTHING_FOUND
         return self.SUCCESS
+
+    @classmethod
+    def new(self, language, version="", dry_run=False, base_env_dir="", env_name="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_display_name=""):
+        for project_cls in self.LANGUAGES:
+            if f"{language.capitalize()}Project" == project_cls.__name__:
+                try:
+                    project = project_cls(None, base_env_dir, self.log,
+                        force_init=True,
+                        interpreter_version=version or "",
+                        dry_run=dry_run)
+                    project.create_environment(interpreter_base_dir=interpreter_base_dir)
+                    project.create_kernel(user=kernel_user, name=env_name, display_name=kernel_display_name, prefix=kernel_prefix)
+                    return self.SUCCESS
+                except RuntimeError as e:
+                    self.log.warning(e)
+                    return self.CREATION_FAILED
+        self.log.warning(f"Unsupported language: {language}")
+        return self.CREATION_FAILED
 
     @classmethod
     def create(self, directory="", dry_run=False, base_env_dir="", env_name="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_display_name=""):

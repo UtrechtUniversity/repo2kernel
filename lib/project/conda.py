@@ -32,9 +32,9 @@ class CondaProject(Project):
         self._env_file_dependencies = None
         self.env_file = self.binder_path("environment.yml")
         self.detected = CondaProject.detect(self)
-        if self.detected or force_init:
+        if self.detected or (force_init and self.env_type == "conda"):
             self.base_cmd = ["conda", "run", "-p", str(self.env_path)]
-        if force_init:
+        if force_init and self.env_type == "conda":
             CondaProject.create_environment(self)
 
     @property
@@ -83,19 +83,19 @@ class CondaProject(Project):
                     break
         return self._uses_r
 
-    def conda_install(self, pkg):
-        try:
-            return self.run([["conda", "install", "-p", str(self.env_path), pkg, "-y"]], {})
-        except RuntimeError:
-            return False
+    def conda_install(self, *args):
+        return self.run([["conda", "install", "-p", str(self.env_path), *args, "-y"]], {})
+
 
     # Decorator fur use in subclasses
     def conda_install_dependencies(func, *args, **kwargs):
         def decorate(self, *args, **kwargs):
             if self.conda_env_initialized: # conda env exists
-                for dep in self.missing_dependencies():
-                    self.log.info(f"Missing dependency '{dep}', attempting to install it using conda...")
-                    result = self.conda_install(dep)
+                missing = self.missing_dependencies()
+                if len(missing) > 0:
+                    self.log.info(f"Missing dependencies: {missing}")
+                    self.log.info(f"Attempting to install missing dependencies using conda...")
+                    result = self.conda_install(*missing)
                     if not result:
                         raise RuntimeError(f"Fatal error: could not conda install dependency '{dep}'.")
             return func(self, *args, **kwargs)
@@ -144,7 +144,3 @@ class CondaProject(Project):
     def detect(self):
         """Check if current repo contains a Conda project."""
         return self.env_file.exists()
-
-
-    def interpreter_version(self):
-        return "not applicable"
