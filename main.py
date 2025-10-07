@@ -1,25 +1,9 @@
 import repo2docker.contentproviders
-from lib import PythonProject, CondaProject, RCondaProject, JuliaProject
+from lib import PythonProject, CondaProject, RProject, JuliaProject
 from lib import Dataverse
 import argparse
 from shutil import which
-
-# Exit codes
-SUCCESS = 0
-NOTHING_FOUND = 2
-CREATION_FAILED = 3
-
-# List of supported project languages
-LANGUAGES = [
-    PythonProject,
-    RCondaProject,
-    JuliaProject,
-]
-
-PROJECT_TYPES = [
-    CondaProject,
-    *LANGUAGES
-]
+import tempfile
 
 def get_argparser():
     parser = argparse.ArgumentParser(
@@ -57,6 +41,23 @@ class CliCommands():
 
     log = logging.getLogger("repo2kernel")
     logging.basicConfig(level=logging.INFO)
+
+    # Exit codes
+    SUCCESS = 0
+    NOTHING_FOUND = 2
+    CREATION_FAILED = 3
+
+    # List of supported project languages
+    LANGUAGES = [
+        PythonProject,
+        RProject,
+        JuliaProject,
+    ]
+
+    PROJECT_TYPES = [
+        CondaProject,
+        *LANGUAGES
+    ]
 
     # List of supported project store classes
     CONTENT_PROVIDERS = [
@@ -121,7 +122,7 @@ class CliCommands():
     @classmethod
     def detect(self, directory=""):
         found = False
-        for project_cls in PROJECT_TYPES:
+        for project_cls in self.PROJECT_TYPES:
             project = project_cls(directory, "", self.log, dry_run=True)
 
             if not project.detected:
@@ -136,8 +137,8 @@ class CliCommands():
             print(f"Version: {project.interpreter_version() or 'not defined'}")
         if not found:
             print(f"No projects found in {directory}!")
-            return NOTHING_FOUND
-        return SUCCESS
+            return self.NOTHING_FOUND
+        return self.SUCCESS
 
     @classmethod
     def create(self, directory="", dry_run=False, base_env_dir="", env_name="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_display_name=""):
@@ -150,7 +151,7 @@ class CliCommands():
             else:
                 env_type = ""
 
-            for project_cls in LANGUAGES:
+            for project_cls in self.LANGUAGES:
                 project = project_cls(directory, base_env_dir, self.log, env_type=env_type, env_name=env_name, dry_run=dry_run)
                 if project.detected:
                     project.create_environment(interpreter_base_dir=interpreter_base_dir)
@@ -158,15 +159,17 @@ class CliCommands():
 
         except RuntimeError as e:
             self.log.warning(e)
-            return CREATION_FAILED
+            return self.CREATION_FAILED
 
-        return SUCCESS
+        return self.SUCCESS
         
-
-if __name__ == "__main__":
+def main():
     args = get_argparser().parse_args()
     command = getattr(CliCommands, args.subparser_name)
     opts = vars(args)
     del opts['subparser_name']
     code = command(**opts)
     exit(code)
+
+if __name__ == "__main__":
+    main()

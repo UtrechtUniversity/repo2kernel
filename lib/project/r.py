@@ -5,7 +5,7 @@ from repo2docker.buildpacks.r import RBuildPack
 import platform
 import datetime
 
-class RCondaProject(CondaProject, RBuildPack):
+class RProject(CondaProject, RBuildPack):
     project_type = "R"
     kernel_base_display_name = "R Kernel"
     dependencies = ["conda"]
@@ -14,7 +14,7 @@ class RCondaProject(CondaProject, RBuildPack):
     default_posit_cran = "https://packagemanager.posit.co/cran/"
     r_default_opts = ["R", "--no-site-file", "--no-save", "--no-restore", "--no-init-file", "--no-environ", "--quiet", "-e"]
 
-    def __init__(self, project_path, env_base_path, log, **kwargs):
+    def __init__(self, project_path, env_base_path, log, force_init=False, **kwargs):
         kwargs["env_type"] = kwargs.get("env_type", "conda")
         super().__init__(project_path, env_base_path, log, force_init=True, **kwargs)
         self.detected = self.detect()
