@@ -102,7 +102,7 @@ class CondaProject(Project):
                 missing = self.missing_dependencies()
                 if len(missing) > 0:
                     self.log.info(f"Missing dependencies: {missing}")
-                    self.log.info(f"Attempting to install missing dependencies using conda...")
+                    self.log.info("Attempting to install missing dependencies using conda...")
                     try:
                         self.conda_install(*missing)
                     except RuntimeError as err:

@@ -191,7 +191,6 @@ class CliCommands():
         return self.SUCCESS
 
 def main():
-    import CliCommands
     args = get_argparser().parse_args()
     command = getattr(CliCommands, args.subparser_name)
     opts = vars(args)
@@ -200,4 +199,4 @@ def main():
     exit(code)
 
 if __name__ == "__main__":
-    CliCommands.main()
+    main()

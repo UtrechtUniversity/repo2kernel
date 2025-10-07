@@ -4,11 +4,8 @@ from pathlib import Path
 from shutil import which
 import subprocess
 import os
-import re
-import datetime
 import tempfile
 import uuid
-import platform
 
 class Project(BaseImage):
 

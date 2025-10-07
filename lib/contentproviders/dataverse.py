@@ -1,5 +1,5 @@
 from repo2docker.contentproviders import Dataverse as BaseDataverse
-import os
+import json
 
 class Dataverse(BaseDataverse):
     """

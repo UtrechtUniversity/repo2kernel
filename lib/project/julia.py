@@ -72,8 +72,6 @@ class JuliaProject(CondaProject, JuliaProjectTomlBuildPack):
             env['JUPYTER_DATA_DIR'] = str(prefix or self.default_kernel_location)
         # IJulia installs kernels in userspace by default, so no need to do anyting if user is False
 
-        project_arg = "," if self.julia_project_dir else ""
-
         cmds = [
             [*self.base_cmd, "julia", f"+{self.interpreter_version}", f"--project={self.julia_project_dir}", "-e", f"using Pkg; using IJulia; installkernel(\"{_name}\", \"--project={self.julia_project_dir}\", displayname=\"{_display_name}\", env=Dict(\"JULIA_DEPOT_PATH\"=>\"{env.get('JULIA_DEPOT_PATH')}\"));"],
         ]
