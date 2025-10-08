@@ -35,9 +35,6 @@ class CondaProject(Project):
         if self.detected or (force_init and self.env_type == "conda"):
             self.conda_path = self.env_path
             self.base_cmd = ["conda", "run", "-p", str(self.conda_path)]
-        if force_init and self.env_type == "conda":
-            CondaProject.create_environment(self)
-
 
     @property
     def conda_env_initialized(self):
@@ -121,8 +118,8 @@ class CondaProject(Project):
             return True
 
         cmd = ["conda", "env", "create", "-f",]
-        if self.detected:
-            cmd.append(str(self.binder_path("environment.yml")))
+        if self.env_file.exists():
+            cmd.append(str(self.env_file))
         else:
             cmd.append(str(EMPTY_CONDA_ENV))
         cmd.extend(["-p", str(self.conda_path)])

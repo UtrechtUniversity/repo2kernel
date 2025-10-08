@@ -20,6 +20,8 @@ class RProject(CondaProject, RBuildPack):
             kwargs["env_type"] = "conda"
         super().__init__(project_path, env_base_path, log, force_init=True, interpreter_version=interpreter_version, **kwargs)
         self.detected = self.detect()
+        if self.detected or force_init:
+            CondaProject.create_environment(self)
 
     def get_rspm_snapshot_url(self, max_days_prior=7):
         ubuntu_url = RBuildPack.get_rspm_snapshot_url(self, self.checkpoint_date or self.default_checkpoint_date(), max_days_prior) # RBuildPack constructs a download URL for Ubuntu specifically
