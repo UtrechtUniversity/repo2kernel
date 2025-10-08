@@ -1,6 +1,9 @@
 import repo2docker.contentproviders
+
 from lib import PythonProject, CondaProject, RProject, JuliaProject
 from lib import Dataverse
+
+import sys
 import argparse
 from shutil import which
 
@@ -78,20 +81,20 @@ class CliCommands():
     ]
 
     @classmethod
-    def content_providers(self, dataverse_json=[]):
+    def content_providers(self, dataverse_json=[], exclude=set()):
         cps = self.CONTENT_PROVIDERS
 
         if not which('hg'):
             self.log.info("Did not find `hg` command on PATH, will ignore Mercurial URLs while fetching.")
             try:
-                cps.remove(repo2docker.contentproviders.Mercurial)
+                exclude.add(repo2docker.contentproviders.Mercurial)
             except ValueError:
                 pass
 
-        for json_file in dataverse_json:
+        for json_file in (dataverse_json or []):
             Dataverse.add_settings_file(json_file)
 
-        return cps
+        return [cp for cp in cps if cp not in exclude]
 
     @classmethod
     # This method was adapted from https://github.com/jupyterhub/repo2docker
@@ -110,7 +113,7 @@ class CliCommands():
         """
 
         picked_content_provider = None
-        for ContentProvider in self.content_providers(dataverse_json=dataverse_json):
+        for ContentProvider in self.content_providers(dataverse_json=dataverse_json, exclude={repo2docker.contentproviders.Local}):
             cp = ContentProvider()
 
             spec = cp.detect(url, ref=ref)
@@ -191,12 +194,17 @@ class CliCommands():
         return self.SUCCESS
 
 def main():
-    args = get_argparser().parse_args()
-    command = getattr(CliCommands, args.subparser_name)
-    opts = vars(args)
-    del opts['subparser_name']
-    code = command(**opts)
-    exit(code)
+    arg_parser = get_argparser()
+   
+    if (parsed_args := arg_parser.parse_args()) and parsed_args.subparser_name:
+        command = getattr(CliCommands, parsed_args.subparser_name)
+        opts = vars(parsed_args)
+        del opts['subparser_name']
+        code = command(**opts)
+        exit(code)
+    else:
+        arg_parser.print_help()
+        exit(1)
 
 if __name__ == "__main__":
     main()

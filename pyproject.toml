@@ -12,7 +12,13 @@ dependencies = [
 
 
 [project.scripts]
-repo2kernel = "main.py:main"
+repo2kernel = "lib.cli:main"
 
 [tool.uv.sources]
 jupyter-repo2docker = { git = "https://github.com/jupyterhub/repo2docker", rev = "358888c6a93839dd4c60859737d886e49a4a1247" }
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"repo2kernel" = ["*.yml"]
