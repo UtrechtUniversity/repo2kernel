@@ -23,6 +23,8 @@ class JuliaProject(CondaProject, Project, JuliaProjectTomlBuildPack):
         self.detected = JuliaProjectTomlBuildPack.detect(self)
 
         # Since Julia stores all dependencies (including different version of the same package) in a single depot, set the env_path to the generic "julia" dir under the requested env_base_path, instead of env_base_path / julia / project_name
+        self.env_path = self.env_base_path / "julia"
+
         if self.detected or force_init:
             try:
                 parsed_version = Version(self.interpreter_version)
