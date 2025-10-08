@@ -5,4 +5,4 @@ from .project.julia import JuliaProject as JuliaProject
 
 
 from .contentproviders.dataverse import Dataverse as Dataverse
-from .cli import main
+from .cli import main as main

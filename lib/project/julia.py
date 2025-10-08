@@ -26,7 +26,7 @@ class JuliaProject(CondaProject, Project, JuliaProjectTomlBuildPack):
         if self.detected or force_init:
             try:
                 parsed_version = Version(self.interpreter_version)
-                supports_named_env = Version(self.interpreter_version) >= Version(self.JULIA_SUPPORTS_NAMED_ENV)
+                supports_named_env = parsed_version >= Version(self.JULIA_SUPPORTS_NAMED_ENV)
             except InvalidVersion:
                 supports_named_env = False
 

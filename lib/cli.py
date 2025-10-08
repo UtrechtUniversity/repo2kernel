@@ -3,7 +3,6 @@ import repo2docker.contentproviders
 from lib import PythonProject, CondaProject, RProject, JuliaProject
 from lib import Dataverse
 
-import sys
 import argparse
 from shutil import which
 
@@ -27,7 +26,7 @@ def get_argparser():
 
     detect_parser.add_argument('directory', help='Project to detect')
 
-    create_parser.add_argument('directory', help='Project to create kernel for')
+    create_parser.add_argument('directory', help='Project to create kernel for. Must be a local directory: use `fetch` first to download online projects.')
     create_parser.add_argument('--dry-run', action='store_true', help='if enabled, will only print the commands to be run, not actually execute them')
     create_parser.add_argument('--env-name', help='name of the environment')
     create_parser.add_argument('--base-env-dir', required=True, help='base path under which the newly created environment for the project wil be saved')
