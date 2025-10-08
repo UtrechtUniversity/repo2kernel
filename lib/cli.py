@@ -146,7 +146,7 @@ class CliCommands():
                 
             print(f"Found dependency files in: {project.binder_dir}")
             print(f"Interpreter: {project.project_type}")
-            print(f"Version: {project.interpreter_version() or 'not defined'}")
+            print(f"Version: {project.interpreter_version or 'not defined'}")
         if not found:
             print(f"No projects found in {directory}!")
             return self.NOTHING_FOUND
