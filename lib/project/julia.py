@@ -6,9 +6,9 @@ import platform
 import os
 from pathlib import Path
 import shutil
-from packaging.version import Version
+from packaging.version import Version, InvalidVersion
 
-class JuliaProject(CondaProject, JuliaProjectTomlBuildPack):
+class JuliaProject(CondaProject, Project, JuliaProjectTomlBuildPack):
 
     JULIA_SUPPORTS_NAMED_ENV = "1.7.0"
     default_version = "1.12"
@@ -18,28 +18,29 @@ class JuliaProject(CondaProject, JuliaProjectTomlBuildPack):
     kernel_package_julia = "IJulia"
     default_kernel_location = (Path("%PROGRAMDATA/jupyter" if platform.system() == 'Windows' else "/usr/local/share/jupyter")).resolve()
 
-    def __init__(self, project_path, env_base_path, log, dry_run=False, **kwargs):
-        CondaProject.__init__(self, project_path, env_base_path, log, dry_run=dry_run, **kwargs)
+    def __init__(self, project_path, env_base_path, log, dry_run=False, force_init=False, **kwargs):
+        CondaProject.__init__(self, project_path, env_base_path, log, dry_run=dry_run, force_init=force_init, **kwargs)
         self.detected = JuliaProjectTomlBuildPack.detect(self)
 
         # Since Julia stores all dependencies (including different version of the same package) in a single depot, set the env_path to the generic "julia" dir under the requested env_base_path, instead of env_base_path / julia / project_name
-        self.env_path = self.env_base_path / "julia"
+        if self.detected or force_init:
+            try:
+                parsed_version = Version(self.interpreter_version)
+                supports_named_env = Version(self.interpreter_version) >= Version(self.JULIA_SUPPORTS_NAMED_ENV)
+            except InvalidVersion:
+                supports_named_env = False
 
-        self.named_env = False
-        if Version(self.interpreter_version) >= Version(self.JULIA_SUPPORTS_NAMED_ENV):
-            self.named_env = True
-            named_env = self.env_path / "environments" / self.env_name / "Project.toml"
-            if not dry_run:
-                os.makedirs(named_env.parent, exist_ok=True)
-                if (p := self.project_path / "Project.toml") and p.exists():
-                    shutil.copy(p, named_env)
-            self.julia_project_dir = f"@{self.env_name}"
-        elif self.detected:
-            self.julia_project_dir = self.project_path
-        else:
-            self.julia_project_dir = ""
-        print(self.julia_project_dir)
-
+            if supports_named_env:
+                named_env = self.env_path / "environments" / self.env_name / "Project.toml"
+                if not dry_run:
+                    os.makedirs(named_env.parent, exist_ok=True)
+                    if (p := self.project_path / "Project.toml") and p.exists():
+                        shutil.copy(p, named_env)
+                self.julia_project_dir = f"@{self.env_name}"
+            elif self.detected:
+                self.julia_project_dir = self.project_path
+            else:
+                self.julia_project_dir = ""
 
     def julia_env(self):
         return {
@@ -81,4 +82,20 @@ class JuliaProject(CondaProject, JuliaProjectTomlBuildPack):
 
     @property
     def interpreter_version(self):
-        return super().interpreter_version or super().julia_version
+        if not self._interpreter_version: # self._interpreter_version is set either by Package.init() (to default_version) or by this method
+            if self.detected:                
+                v = super().julia_version
+                try:
+                    parsed_version = Version(v)
+                    # juliaup expects 1.12 instead of 1.12.0, but in case of a prerelease it does expect e.g. 1.12-rc1
+                    # however, super().julia_version returns 1.12.0 instead of 1.12 (only for point releases)
+                    # so only if we have a version of the form x.y.0, return x.y instead
+                    if len(parsed_version.release) == 3 and parsed_version.release[-1] == 0 and not parsed_version.is_prerelease and not parsed_version.is_postrelease:
+                        self._interpreter_version = f"{parsed_version.major}.{parsed_version.minor}"
+                    else:
+                        self._interpreter_version = v
+                except InvalidVersion:
+                    return None
+            else:
+                return None
+        return self._interpreter_version
