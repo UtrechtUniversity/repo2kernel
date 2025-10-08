@@ -12,7 +12,7 @@ dependencies = [
 
 
 [project.scripts]
-repo2kernel = "lib.cli:main"
+repo2kernel = "repo2kernel.cli:main"
 
 [tool.uv.sources]
 jupyter-repo2docker = { git = "https://github.com/jupyterhub/repo2docker", rev = "358888c6a93839dd4c60859737d886e49a4a1247" }

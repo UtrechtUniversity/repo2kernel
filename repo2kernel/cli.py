@@ -1,7 +1,7 @@
 import repo2docker.contentproviders
 
-from lib import PythonProject, CondaProject, RProject, JuliaProject
-from lib import Dataverse
+from repo2kernel import PythonProject, CondaProject, RProject, JuliaProject
+from repo2kernel import Dataverse
 
 import argparse
 from shutil import which
