@@ -79,8 +79,8 @@ class CliCommands():
     # List of supported dataprovider classes combined with functions to get a valid output dir name for each provider class
     CONTENT_PROVIDERS = [
         (repo2docker.contentproviders.Local, None),
-        (repo2docker.contentproviders.Zenodo, None),
-        (repo2docker.contentproviders.Dataverse, lambda url, provider : provider.parse_dataverse_url(provider.doi2url(url))[0]),
+        (repo2docker.contentproviders.Zenodo, lambda _, provider: f"zenodo-{provider.content_id}"),
+        (Dataverse, lambda url, provider : provider.parse_dataverse_url(provider.doi2url(url))[0]),
         (repo2docker.contentproviders.Mercurial, lambda url, _ : url.rsplit("/", maxsplit=1)[1] ),
         (repo2docker.contentproviders.Git, lambda url, _ : url.rsplit("/", maxsplit=1)[1]),
     ]
