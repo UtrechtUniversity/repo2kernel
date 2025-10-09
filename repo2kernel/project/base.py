@@ -42,7 +42,7 @@ class Project(BaseImage):
         if project_path:
             self._interpreter_version = ""
             self.project_path = Path(project_path)
-            self._env_name = env_name or self.project_path.name
+            self._env_name = env_name or self.project_path.stem
         elif self.force_init:
             # we have no project dir, but will force the creation of a new environment
             self._tmp_dir = tempfile.TemporaryDirectory()
