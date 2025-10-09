@@ -3,9 +3,12 @@ import repo2docker.contentproviders
 from repo2kernel import PythonProject, CondaProject, RProject, JuliaProject
 from repo2kernel import Dataverse
 
+from pathvalidate import sanitize_filename
+
 from pathlib import Path
 import argparse
 from shutil import which
+import os
 
 def get_argparser():
     parser = argparse.ArgumentParser(
@@ -22,7 +25,9 @@ def get_argparser():
 
     fetch_parser.add_argument('url', help='URL to fetch. This program supports XYZ kinds of URLs')
     fetch_parser.add_argument('target', help='Where the downloaded project will be saved')
+    fetch_parser.add_argument('--create-subdir', action='store_true', help='Create a subdir under [target] to store the project under, generating a directory name automatically')
     fetch_parser.add_argument('--ref', help='Version of the project to be fetched (e.g. a git tag)')
+
     fetch_parser.add_argument('--dataverse-json', help='Specify a JSON file containing additional dataverse instances.', action='append')
 
     detect_parser.add_argument('directory', help='Project to detect')
@@ -71,13 +76,13 @@ class CliCommands():
         *LANGUAGES
     ]
 
-    # List of supported project store classes
+    # List of supported dataprovider classes combined with functions to get a valid output dir name for each provider class
     CONTENT_PROVIDERS = [
-        repo2docker.contentproviders.Local,
-        repo2docker.contentproviders.Zenodo,
-        Dataverse,
-        repo2docker.contentproviders.Mercurial,
-        repo2docker.contentproviders.Git,
+        (repo2docker.contentproviders.Local, None),
+        (repo2docker.contentproviders.Zenodo, None),
+        (repo2docker.contentproviders.Dataverse, lambda url, provider : provider.parse_dataverse_url(provider.doi2url(url))[0]),
+        (repo2docker.contentproviders.Mercurial, lambda url, _ : url.rsplit("/", maxsplit=1)[1] ),
+        (repo2docker.contentproviders.Git, lambda url, _ : url.rsplit("/", maxsplit=1)[1]),
     ]
 
     @classmethod
@@ -94,7 +99,7 @@ class CliCommands():
         for json_file in (dataverse_json or []):
             Dataverse.add_settings_file(json_file)
 
-        return [cp for cp in cps if cp not in exclude]
+        return [cp for cp in cps if cp[0] not in exclude]
 
     @classmethod
     # This method was adapted from https://github.com/jupyterhub/repo2docker
@@ -102,7 +107,7 @@ class CliCommands():
     # https://github.com/jupyterhub/repo2docker/blob/main/LICENSE
     # Copyright (c) 2017, Project Jupyter Contributors
     # All rights reserved.
-    def fetch(self, url="", target="", ref="", dataverse_json=[]):
+    def fetch(self, url="", target="", ref="", create_subdir=False, dataverse_json=[]):
         """Fetch the contents of `url` and place it in `target`.
 
         The `ref` parameter specifies what "version" of the contents should be
@@ -113,7 +118,7 @@ class CliCommands():
         """
 
         picked_content_provider = None
-        for ContentProvider in self.content_providers(dataverse_json=dataverse_json, exclude={repo2docker.contentproviders.Local}):
+        for ContentProvider, output_dir_generator in self.content_providers(dataverse_json=dataverse_json, exclude={repo2docker.contentproviders.Local}):
             cp = ContentProvider()
 
             spec = cp.detect(url, ref=ref)
@@ -121,14 +126,16 @@ class CliCommands():
                 picked_content_provider = cp
                 self.log.info(f"Picked {cp.__class__.__name__} content provider.\n")
                 break
-
-        output_dir_name = f"{url.rsplit("/", maxsplit=1)[1]}-{picked_content_provider.content_id}"
+        
+        if output_dir_generator and create_subdir:
+            target = Path(target) / sanitize_filename(output_dir_generator(url, picked_content_provider))
+            os.makedirs(target, exist_ok=True)
 
         if picked_content_provider is None:
             self.log.error(f"No matching content provider found for {url}.")
 
         for log_line in picked_content_provider.fetch(
-            spec, str(Path(target) / output_dir_name), yield_output=False
+            spec, str(target), yield_output=False
         ):
             self.log.info(log_line)
 
