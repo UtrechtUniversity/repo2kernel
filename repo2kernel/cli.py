@@ -3,6 +3,7 @@ import repo2docker.contentproviders
 from repo2kernel import PythonProject, CondaProject, RProject, JuliaProject
 from repo2kernel import Dataverse
 
+from pathlib import Path
 import argparse
 from shutil import which
 
@@ -121,11 +122,13 @@ class CliCommands():
                 self.log.info(f"Picked {cp.__class__.__name__} content provider.\n")
                 break
 
+        output_dir_name = f"{url.rsplit("/", maxsplit=1)[1]}-{picked_content_provider.content_id}"
+
         if picked_content_provider is None:
             self.log.error(f"No matching content provider found for {url}.")
 
         for log_line in picked_content_provider.fetch(
-            spec, target, yield_output=False
+            spec, str(Path(target) / output_dir_name), yield_output=False
         ):
             self.log.info(log_line)
 
