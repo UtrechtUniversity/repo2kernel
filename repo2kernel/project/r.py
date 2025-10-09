@@ -8,7 +8,7 @@ import datetime
 class RProject(CondaProject, RBuildPack):
     project_type = "R"
     kernel_base_display_name = "R Kernel"
-    dependencies = ["conda"]
+    dependencies = ["conda", "jupyter"]
     r_base_pkg = "conda-forge::r-base"
     kernel_package_r = "conda-forge::r-irkernel"
     default_posit_cran = "https://packagemanager.posit.co/cran/"
