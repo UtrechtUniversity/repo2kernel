@@ -1,3 +1,5 @@
 # Dummy environment.yml used to initialize empty conda environments
 channels:
+  - nodefaults
   - conda-forge
+  - bioconda
