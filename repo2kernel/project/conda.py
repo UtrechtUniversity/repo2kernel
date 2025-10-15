@@ -127,7 +127,7 @@ class CondaProject(Project):
             self.log.info("Dry run enabled, will skip conda env creation and you will not see conda env creation command in the dry run output.")
             return True
 
-        cmd = ["conda", "env", "create", "--override-channels", "-c", "conda-forge", "-f",]
+        cmd = ["conda", "create", "--override-channels", "-c", "conda-forge", "-f",]
         if self.env_file.exists():
             cmd.append(str(self.env_file))
         else:
