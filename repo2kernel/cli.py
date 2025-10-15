@@ -63,6 +63,7 @@ class CliCommands():
     SUCCESS = 0
     NOTHING_FOUND = 2
     CREATION_FAILED = 3
+    PROJECT_EXISTS = 4
 
     # List of supported project languages
     LANGUAGES = [
@@ -129,7 +130,11 @@ class CliCommands():
         
         if output_dir_generator and create_subdir:
             target = Path(target) / sanitize_filename(output_dir_generator(url, picked_content_provider))
-            os.makedirs(target, exist_ok=True)
+            try:
+                os.makedirs(target)
+            except FileExistsError:
+                self.log.info(f"Project {target} already exists, aborting...")
+                return self.PROJECT_EXISTS
 
         if picked_content_provider is None:
             self.log.error(f"No matching content provider found for {url}.")
