@@ -33,6 +33,8 @@ def get_argparser():
     detect_parser.add_argument('directory', help='Project to detect')
 
     create_parser.add_argument('directory', help='Project to create kernel for. Must be a local directory: use `fetch` first to download online projects.')
+    create_parser.add_argument('--conda-install-deps', action='store_true', help='skip creation of a jupyter kernel (will only install dependencies for project)')
+    create_parser.add_argument('--no-kernel', action='store_true', help='skip creation of a jupyter kernel (will only install dependencies for project)')
     create_parser.add_argument('--dry-run', action='store_true', help='if enabled, will only print the commands to be run, not actually execute them')
     create_parser.add_argument('--env-name', help='name of the environment')
     create_parser.add_argument('--base-env-dir', required=True, help='base path under which the newly created environment for the project wil be saved')
@@ -42,6 +44,8 @@ def get_argparser():
     create_parser.add_argument('--kernel-display-name', help='display name of the kernel')
 
     create_empty_parser.add_argument('language', help='Language to create kernel for. Valid values: `python`, `r`, or `julia`.')
+    create_empty_parser.add_argument('--conda-install-deps', action='store_true', help='skip creation of a jupyter kernel (will only install dependencies for project)')
+    create_empty_parser.add_argument('--no-kernel', action='store_true', help='skip creation of a jupyter kernel (will only install dependencies for project)')
     create_empty_parser.add_argument('--version', help='the version of the interpreter for the chosen language to use')
     create_empty_parser.add_argument('--dry-run', action='store_true', help='if enabled, will only print the commands to be run, not actually execute them')
     create_empty_parser.add_argument('--base-env-dir', required=True, help='base path under which the newly created environment for the project wil be saved')
@@ -167,16 +171,19 @@ class CliCommands():
         return self.SUCCESS
 
     @classmethod
-    def new(self, language, version="", dry_run=False, base_env_dir="", env_name="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_display_name=""):
+    def new(self, language, version="", dry_run=False, base_env_dir="", env_name="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_display_name="",
+    no_kernel=False, conda_install_deps=False):
         for project_cls in self.LANGUAGES:
             if f"{language.capitalize()}Project" == project_cls.__name__:
                 try:
                     project = project_cls(None, base_env_dir, self.log,
                         force_init=True,
                         interpreter_version=version or "",
+                        conda_install_deps=conda_install_deps,
                         dry_run=dry_run)
                     project.create_environment(interpreter_base_dir=interpreter_base_dir)
-                    project.create_kernel(user=kernel_user, name=env_name, display_name=kernel_display_name, prefix=kernel_prefix)
+                    if not no_kernel:
+                        project.create_kernel(user=kernel_user, name=env_name, display_name=kernel_display_name, prefix=kernel_prefix)
                     return self.SUCCESS
                 except RuntimeError as e:
                     self.log.warning(e)
@@ -185,9 +192,9 @@ class CliCommands():
         return self.CREATION_FAILED
 
     @classmethod
-    def create(self, directory="", dry_run=False, base_env_dir="", env_name="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_display_name=""):
+    def create(self, directory="", dry_run=False, base_env_dir="", env_name="", interpreter_base_dir="", kernel_user=False, kernel_prefix="", kernel_display_name="", no_kernel=False, conda_install_deps=False):
         try:
-            base_project = CondaProject(directory, base_env_dir, self.log, env_name=env_name, dry_run=dry_run)
+            base_project = CondaProject(directory, base_env_dir, self.log, env_name=env_name, conda_install_deps=conda_install_deps, dry_run=dry_run)
 
             if base_project.detected:
                 base_project.create_environment()
@@ -196,10 +203,11 @@ class CliCommands():
                 env_type = ""
 
             for project_cls in self.LANGUAGES:
-                project = project_cls(directory, base_env_dir, self.log, env_type=env_type, env_name=env_name, dry_run=dry_run)
+                project = project_cls(directory, base_env_dir, self.log, env_type=env_type, env_name=env_name, conda_install_deps=conda_install_deps, dry_run=dry_run)
                 if project.detected:
                     project.create_environment(interpreter_base_dir=interpreter_base_dir)
-                    project.create_kernel(user=kernel_user, name=env_name, display_name=kernel_display_name, prefix=kernel_prefix)
+                    if not no_kernel:
+                        project.create_kernel(user=kernel_user, name=env_name, display_name=kernel_display_name, prefix=kernel_prefix)
 
         except RuntimeError as e:
             self.log.warning(e)

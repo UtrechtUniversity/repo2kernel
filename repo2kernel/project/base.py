@@ -29,12 +29,13 @@ class Project(BaseImage):
         test = r"!<>=,"
         return not any(x in test for x in v)
 
-    def __init__(self, project_path, env_base_path, log, base_cmd = [], interpreter_version="", env_type=None, env_name="", force_init=False, dry_run=False, **kwargs):
+    def __init__(self, project_path, env_base_path, log, base_cmd = [], interpreter_version="", env_type=None, env_name="", force_init=False, dry_run=False, conda_install_deps=False, **kwargs):
         self.force_init = force_init
         self.dry_run = dry_run
         self.log = log
         self.base_cmd = []
         self.detected = False
+        self.conda_install_deps = conda_install_deps
 
         self.env_base_path = Path(env_base_path)
         self.env_type = env_type or self.__class__.project_type
@@ -73,8 +74,8 @@ class Project(BaseImage):
     def kernel_display_name(self, name):
         return f"{self.kernel_base_display_name} {name or self.env_name}"
 
-    def missing_dependencies(self, path=os.environ.get("PATH", "")):
-        return [d for d in self.dependencies if not which(d, path=path)]
+    def missing_dependencies(self, path=os.environ.get("PATH", ""), dependencies=[]):
+        return [d for d in (dependencies or self.dependencies) if not which(d, path=path)]
 
     def check_dependencies(func, *args, **kwargs):
         def decorate(self, *args, **kwargs):

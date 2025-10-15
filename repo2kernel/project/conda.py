@@ -85,28 +85,38 @@ class CondaProject(Project):
     def conda_install(self, *args):
         return self.run([["conda", "install", "-p", str(self.conda_path), *args, "-y"]], {})
 
-    def missing_dependencies(self):
+    def missing_dependencies(self, **kwargs):
         if self.conda_env_initialized:
             path = self.__class__.add_to_path(str((self.conda_path / "bin").resolve()))
         else:
             path = os.environ.get("PATH", "")
-        return super().missing_dependencies(path=path)
+        return super().missing_dependencies(path=path, **kwargs)
 
-    # Decorator fur use in subclasses
-    def conda_install_dependencies(func, *args, **kwargs):
-        def decorate(self, *args, **kwargs):
-            if self.conda_env_initialized: # conda env exists
-                missing = self.missing_dependencies()
-                if len(missing) > 0:
-                    self.log.info(f"Missing dependencies: {missing}")
-                    self.log.info("Attempting to install missing dependencies using conda...")
-                    try:
-                        self.conda_install(*missing)
-                    except RuntimeError as err:
-                        self.log.error("Fatal error: could not install dependencies using conda:")
-                        raise err
-            return func(self, *args, **kwargs)
-        return decorate
+    def conda_install_dependencies(dependencies=None):
+        def decorator(func):
+            def wrapper(self, *args, **kwargs):
+                if self.conda_env_initialized and self.conda_install_deps:  # conda env exists
+                    missing = self.missing_dependencies(dependencies=dependencies)
+                    if len(missing) > 0:
+                        self.log.info(f"Missing dependencies: {missing}")
+                        self.log.info("Attempting to install missing dependencies using conda...")
+                        try:
+                            self.conda_install(*missing)
+                        except RuntimeError as err:
+                            self.log.error("Fatal error: could not install dependencies using conda:")
+                            raise err
+                return func(self, *args, **kwargs)
+            return wrapper
+        
+        # Handle both @conda_install_dependencies and @conda_install_dependencies()
+        if callable(dependencies):
+            # Called without parentheses: @conda_install_dependencies
+            func = dependencies
+            dependencies = None
+            return decorator(func)
+        else:
+            # Called with parentheses: @conda_install_dependencies() or @conda_install_dependencies(deps)
+            return decorator
 
     @Project.check_detected
     @Project.check_dependencies

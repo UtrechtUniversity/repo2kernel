@@ -8,7 +8,7 @@ import datetime
 class RProject(CondaProject, RBuildPack):
     project_type = "R"
     kernel_base_display_name = "R Kernel"
-    dependencies = ["conda", "jupyter"]
+    dependencies = ["conda"]
     r_base_pkg = "conda-forge::r-base"
     kernel_package_r = "conda-forge::r-irkernel"
     default_posit_cran = "https://packagemanager.posit.co/cran/"
@@ -48,7 +48,6 @@ class RProject(CondaProject, RBuildPack):
             args.append("user=TRUE")
         else:
             args.append("user=FALSE")
-        print(args)
 
         return [f"IRkernel::installspec({','.join(args)})"]
         
@@ -82,6 +81,7 @@ class RProject(CondaProject, RBuildPack):
         return True
 
     @Project.check_detected
+    @CondaProject.conda_install_dependencies(['jupyter'])
     @Project.check_dependencies
     def create_kernel(self, **kwargs):
         cmds = [
