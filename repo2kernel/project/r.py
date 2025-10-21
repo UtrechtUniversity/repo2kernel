@@ -29,7 +29,7 @@ class RProject(CondaProject, RBuildPack):
         upsi_date = upsi[:10] # get only the date info
 
         if platform.system() == 'Linux' and  platform.freedesktop_os_release().get('NAME') == 'Ubuntu':
-            return ubuntu_url
+            return ubuntu_url.replace('${VERSION_CODENAME}', platform.freedesktop_os_release().get("VERSION_CODENAME"))
         else:
             return f"{self.default_posit_cran}{upsi_date}"
 
