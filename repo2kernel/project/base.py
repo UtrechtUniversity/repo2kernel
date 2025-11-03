@@ -13,6 +13,7 @@ class Project(BaseImage):
     kernel_base_display_name = "Kernel"
     dependencies = []
     default_version=""
+    default_env_base_path = Path.home() / ".local" / "repo2kernel"
 
     @classmethod
     def add_to_path(self, *args):
@@ -37,7 +38,8 @@ class Project(BaseImage):
         self.detected = False
         self.conda_install_deps = conda_install_deps
 
-        self.env_base_path = Path(env_base_path)
+        self.env_base_path = Path(env_base_path or self.default_env_base_path)
+        self.env_base_path.mkdir(parents=True, exist_ok=True)
         self.env_type = env_type or self.__class__.project_type
 
         if project_path:
