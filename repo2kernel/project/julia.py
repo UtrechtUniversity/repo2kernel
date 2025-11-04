@@ -28,21 +28,15 @@ class JuliaProject(CondaProject, Project, JuliaProjectTomlBuildPack):
         if self.detected or force_init:
             try:
                 parsed_version = Version(self.interpreter_version)
-                supports_named_env = parsed_version >= Version(self.JULIA_SUPPORTS_NAMED_ENV)
-            except InvalidVersion:
-                supports_named_env = False
+                if parsed_version < Version(self.JULIA_SUPPORTS_NAMED_ENV):
+                    raise RuntimeError(f"Julia < {self.JULIA_SUPPORTS_NAMED_ENV} is not supported")
 
-            if supports_named_env:
-                named_env = self.env_path / "environments" / self.env_name / "Project.toml"
-                if not dry_run:
-                    os.makedirs(named_env.parent, exist_ok=True)
-                    if (p := self.project_path / "Project.toml") and p.exists():
-                        shutil.copy(p, named_env)
-                self.julia_project_dir = f"@{self.env_name or '.'}"
-            elif self.detected:
-                self.julia_project_dir = self.project_path
-            else:
-                self.julia_project_dir = ""
+            named_env = self.env_path / "environments" / self.env_name / "Project.toml"
+            if not dry_run:
+                os.makedirs(named_env.parent, exist_ok=True)
+                if (p := self.project_path / "Project.toml") and p.exists():
+                    shutil.copy(p, named_env)
+            self.julia_project_dir = f"@{self.env_name or '.'}"
 
     def julia_env(self):
         return {
