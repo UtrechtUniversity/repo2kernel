@@ -26,10 +26,9 @@ class JuliaProject(CondaProject, Project, JuliaProjectTomlBuildPack):
         self.env_path = self.env_base_path / "julia"
 
         if self.detected or force_init:
-            try:
-                parsed_version = Version(self.interpreter_version)
-                if parsed_version < Version(self.JULIA_SUPPORTS_NAMED_ENV):
-                    raise RuntimeError(f"Julia < {self.JULIA_SUPPORTS_NAMED_ENV} is not supported")
+            parsed_version = Version(self.interpreter_version)
+            if parsed_version < Version(self.JULIA_SUPPORTS_NAMED_ENV):
+                raise RuntimeError(f"Julia < {self.JULIA_SUPPORTS_NAMED_ENV} is not supported")
 
             named_env = self.env_path / "environments" / self.env_name / "Project.toml"
             if not dry_run:
