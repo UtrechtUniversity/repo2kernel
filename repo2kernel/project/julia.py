@@ -38,7 +38,7 @@ class JuliaProject(CondaProject, Project, JuliaProjectTomlBuildPack):
                     os.makedirs(named_env.parent, exist_ok=True)
                     if (p := self.project_path / "Project.toml") and p.exists():
                         shutil.copy(p, named_env)
-                self.julia_project_dir = f"@{self.env_name}"
+                self.julia_project_dir = f"@{self.env_name or '.'}"
             elif self.detected:
                 self.julia_project_dir = self.project_path
             else:
