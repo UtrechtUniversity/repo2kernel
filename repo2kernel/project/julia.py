@@ -69,7 +69,7 @@ class JuliaProject(CondaProject, Project, JuliaProjectTomlBuildPack):
         # IJulia installs kernels in userspace by default, so no need to do anyting if user is False
 
         cmds = [
-            [*self.base_cmd, "julia", f"+{self.interpreter_version}", f"--project={self.julia_project_dir}", "-e", f"using Pkg; using IJulia; installkernel(\"{_name}\", \"--project={self.julia_project_dir}\", displayname=\"{_display_name}\", env=Dict(\"JULIA_DEPOT_PATH\"=>\":{env.get('JULIA_DEPOT_PATH')}\"));"],
+            [*self.base_cmd, "julia", f"+{self.interpreter_version}", f"--project={self.julia_project_dir}", "-e", f"using Pkg; using IJulia; installkernel(\"{_name}\", \"--project={self.julia_project_dir}\", julia=`$(Base.julia_cmd()[1])`, displayname=\"{_display_name}\", env=Dict(\"JULIA_DEPOT_PATH\"=>\":{env.get('JULIA_DEPOT_PATH')}\"));"],
         ]
         # Todo: check if DEPOT_PATH should always be the same
         self.run(cmds, env)
