@@ -3,3 +3,4 @@ channels:
   - nodefaults
   - conda-forge
   - bioconda
+dependencies: []
